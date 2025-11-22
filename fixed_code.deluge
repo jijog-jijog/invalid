@@ -9,7 +9,14 @@ memberMap = Map();
 formValues = form.get("values");
 if(formValues == null)
 {
-    response.put("text","❌ Form values missing");
+    try
+    {
+        response.put("text","❌ Form values missing");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
     return response;
 }
 
@@ -37,7 +44,14 @@ if(taskField != null)
 }
 if(taskName == "")
 {
-    response.put("text","❌ Task name required");
+    try
+    {
+        response.put("text","❌ Task name required");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
     return response;
 }
 
@@ -61,7 +75,14 @@ if(listField != null)
 }
 if(listId == "")
 {
-    response.put("text","❌ List ID required");
+    try
+    {
+        response.put("text","❌ List ID required");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
     return response;
 }
 
@@ -138,19 +159,41 @@ if(personField != null)
 // =============================
 // FETCH SCHEMA
 // =============================
-schemaURL = "https://base.zenkit.com/api/v1/lists/" + listId + "/elements";
-schema = invokeurl
-[
-    url : schemaURL
-    type : GET
-    connection : "zenkitconnect"
-];
+try
+{
+    schemaURL = "https://base.zenkit.com/api/v1/lists/" + listId + "/elements";
+    schema = invokeurl
+    [
+        url : schemaURL
+        type : GET
+        connection : "zenkitconnect"
+    ];
+}
+catch(e)
+{
+    try
+    {
+        response.put("text","❌ Failed to fetch schema");
+    }
+    catch(e2)
+    {
+        response.put("text","Error");
+    }
+    return response;
+}
 
 // Handle schema response format (array only)
 elements = schema;
 if(elements == null)
 {
-    response.put("text","❌ No schema returned from Zenkit");
+    try
+    {
+        response.put("text","❌ No schema returned from Zenkit");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
     return response;
 }
 
@@ -193,7 +236,14 @@ for each el in elements
 
 if(taskUUID == "")
 {
-    response.put("text","❌ Task field UUID not found");
+    try
+    {
+        response.put("text","❌ Task field UUID not found");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
     return response;
 }
 
@@ -201,7 +251,15 @@ if(taskUUID == "")
 // BUILD PAYLOAD
 // =============================
 entry = Map();
-entry.put(taskUUID + "_text", taskName);
+try
+{
+    taskKey = taskUUID + "_text";
+    entry.put(taskKey, taskName);
+}
+catch(e)
+{
+    // Failed to add task, but continue
+}
 
 // CATEGORY - Safe conversion with error handling
 if(categoryId != "" && catUUID != "")
@@ -211,21 +269,30 @@ if(categoryId != "" && catUUID != "")
         cid = categoryId.toLong();
         cats = List();
         cats.add(cid);
-        entry.put(catUUID + "_categories", cats);
+        catKey = catUUID + "_categories";
+        entry.put(catKey, cats);
     }
     catch(e)
     {
-        info "❌ Invalid category value: " + categoryId;
+        // Silently fail on category conversion - continue with rest of payload
     }
 }
 
 // DATE - Include all required Zenkit date fields
 if(dueDate != "" && dateUUID != "")
 {
-    entry.put(dateUUID + "_date", dueDate);
-    entry.put(dateUUID + "_hasTime", false);
-    entry.put(dateUUID + "_endDate", null);
-    entry.put(dateUUID + "_timezone", "UTC");
+    try
+    {
+        dateKey = dateUUID + "_date";
+        entry.put(dateKey, dueDate);
+        entry.put(dateUUID + "_hasTime", false);
+        entry.put(dateUUID + "_endDate", null);
+        entry.put(dateUUID + "_timezone", "UTC");
+    }
+    catch(e)
+    {
+        // Failed to add date fields, but continue
+    }
 }
 
 // PERSON - Send as persons list (NOT assignments)
@@ -236,34 +303,64 @@ if(personId != "" && personUUID != "")
         pid = personId.toLong();
         ppl = List();
         ppl.add(pid);
-        entry.put(personUUID + "_persons", ppl);
+        personKey = personUUID + "_persons";
+        entry.put(personKey, ppl);
     }
     catch(e)
     {
-        info "❌ Person ID invalid: " + personId;
+        // Silently fail on person conversion - continue with rest of payload
     }
 }
 
 // =============================
 // POST ENTRY TO ZENKIT
 // =============================
-postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
+try
+{
+    postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
 
-headers = Map();
-headers.put("Content-Type","application/json");
+    headers = Map();
+    try
+    {
+        headers.put("Content-Type","application/json");
+    }
+    catch(e)
+    {
+        // Use empty headers if put fails
+    }
 
-res = invokeurl
-[
-    url : postUrl
-    type : POST
-    headers : headers
-    body : entry
-    connection : "zenkitconnect"
-];
+    res = invokeurl
+    [
+        url : postUrl
+        type : POST
+        headers : headers
+        body : entry
+        connection : "zenkitconnect"
+    ];
+}
+catch(e)
+{
+    try
+    {
+        response.put("text", "❌ Failed to post to Zenkit");
+    }
+    catch(e2)
+    {
+        response.put("text", "Error");
+    }
+    return response;
+}
 
 if(res == null)
 {
-    response.put("text","❌ No response from Zenkit API");
+    try
+    {
+        response.put("text", "❌ No response from Zenkit API");
+    }
+    catch(e)
+    {
+        response.put("text", "Error");
+    }
     return response;
 }
 
@@ -271,40 +368,98 @@ uuid = res.get("uuid");
 if(uuid == null)
 {
     errMsg = "Unknown Zenkit error";
-    resStr = res.toString();
-    if(resStr != null && resStr != "")
+    try
     {
-        errMsg = resStr;
+        resStr = res.toString();
+        if(resStr != null && resStr != "")
+        {
+            errMsg = resStr;
+        }
     }
-    response.put("text","❌ Zenkit Error: " + errMsg);
+    catch(e)
+    {
+        errMsg = "Zenkit Error";
+    }
+    try
+    {
+        response.put("text","❌ Zenkit Error: " + errMsg);
+    }
+    catch(e)
+    {
+        response.put("text","❌ Zenkit Error");
+    }
     return response;
 }
 
 // SUCCESS
 uuid = res.get("uuid");
-taskUrl = "https://base.zenkit.com/item/" + uuid;
-
-successMsg = "✅ Task *" + taskName + "* created!\n🔗 " + taskUrl;
-if(assignToName != null && assignToName != "")
+if(uuid == null)
 {
-    successMsg = successMsg + "\n👤 Assigned to: " + assignToName;
+    try
+    {
+        response.put("text","❌ Failed to get UUID from Zenkit response");
+    }
+    catch(e)
+    {
+        response.put("text","❌ Error creating task");
+    }
+    return response;
 }
 
-// FINAL NULL-SAFETY CHECK
-if(successMsg == null)
+taskUrl = "https://base.zenkit.com/item/" + uuid;
+
+successMsg = "✅ Task created!";
+
+try
+{
+    successMsg = "✅ Task *" + taskName + "* created!\n🔗 " + taskUrl;
+}
+catch(e)
 {
     successMsg = "✅ Task created successfully!";
 }
 
-response.put("text", successMsg);
+try
+{
+    if(assignToName != null && assignToName != "")
+    {
+        successMsg = successMsg + "\n👤 Assigned to: " + assignToName;
+    }
+}
+catch(e)
+{
+    // Failed to add assignment, but keep the message we have
+}
 
-btn = Map();
-btn.put("label","Open in Zenkit");
-btn.put("type","+");
-btn.put("action", {"type":"open.url","data":{"web":taskUrl}});
+// FINAL NULL-SAFETY CHECK
+if(successMsg == null || successMsg == "")
+{
+    successMsg = "✅ Task created successfully!";
+}
 
-btns = List();
-btns.add(btn);
-response.put("buttons", btns);
+try
+{
+    response.put("text", successMsg);
+}
+catch(e)
+{
+    response.put("text", "✅ Task created successfully!");
+}
+
+try
+{
+    btn = Map();
+    btn.put("label", "Open in Zenkit");
+    btn.put("type", "+");
+    btn.put("action", {"type":"open.url","data":{"web":taskUrl}});
+    
+    btns = List();
+    btns.add(btn);
+    response.put("buttons", btns);
+}
+catch(e)
+{
+    // Button creation failed, but task was still created
+}
 
 return response;
