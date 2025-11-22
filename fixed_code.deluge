@@ -201,6 +201,9 @@ try
     
     if(listDetails != null)
     {
+        // Debug: log what we get from list details
+        debugListKeys = listDetails.toString();
+        
         // Get the short_id first (this is the URL-friendly ID)
         listSlug = listDetails.get("short_id");
         if(listSlug == null || listSlug == "")
@@ -613,6 +616,9 @@ if(taskUrl == null || taskUrl == "")
             finalListSlug = finalListSlug.replaceAll(" ", "-");
         }
         
+        // DEBUG: Create debug message with actual values
+        debugInfo = "[WS='" + workspaceId + "' LS='" + listSlug + "' ES='" + entrySlug + "']";
+        
         // If slug exists and we have workspace/list slugs, build the correct URL
         if(entrySlug != null && entrySlug != "" && entrySlug != "null" && workspaceId != null && workspaceId != "" && finalListSlug != null && finalListSlug != "")
         {
@@ -621,8 +627,8 @@ if(taskUrl == null || taskUrl == "")
         }
         else
         {
-            // Fallback: use UUID
-            taskUrl = "https://base.zenkit.com/item/" + uuid;
+            // Fallback: use UUID - but include debug info
+            taskUrl = "https://base.zenkit.com/item/" + uuid + " " + debugInfo;
         }
     }
     catch(e)
