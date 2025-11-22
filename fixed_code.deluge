@@ -205,35 +205,30 @@ try
         // Debug: log list response
         debugListResponse = listDetails.toString();
         
-        // Try all possible field combinations for list slug
-        // Priority: short_id > slug > id
-        listSlug = listDetails.get("short_id");
+        // Get workspace short_id from list details (shortId field)
+        workspaceId = listDetails.get("shortId");
+        if(workspaceId == null || workspaceId == "")
+        {
+            workspaceId = listDetails.get("short_id");
+        }
+        if(workspaceId == null || workspaceId == "")
+        {
+            workspaceId = listDetails.get("slug");
+        }
+        
+        // Get list short_id - try different field names
+        listSlug = listDetails.get("listShortId");
+        if(listSlug == null || listSlug == "")
+        {
+            listSlug = listDetails.get("list_short_id");
+        }
         if(listSlug == null || listSlug == "")
         {
             listSlug = listDetails.get("slug");
         }
-        if(listSlug == null || listSlug == "")
-        {
-            listSlug = listDetails.get("id");
-        }
         
         // Also get the list name as fallback
         listName = listDetails.get("name");
-        
-        // Get workspace ID - try different field names
-        // Priority: workspace_id > workspaceId > workspace
-        workspaceId = listDetails.get("workspace_id");
-        if(workspaceId == null || workspaceId == "")
-        {
-            workspaceId = listDetails.get("workspaceId");
-        }
-        if(workspaceId == null || workspaceId == "")
-        {
-            workspaceId = listDetails.get("workspace");
-        }
-        
-        // Store numeric workspace ID to fetch the short_id later if needed
-        workspaceNumericId = workspaceId;
     }
 }
 catch(e)
@@ -241,59 +236,7 @@ catch(e)
     // If fetch fails, continue with what we have
 }
 
-// =============================
-// FETCH WORKSPACE DETAILS (to get workspace short_id)
-// =============================
-if(workspaceNumericId != null && workspaceNumericId != "")
-{
-    try
-    {
-        workspaceUrl = "https://base.zenkit.com/api/v1/workspaces/" + workspaceNumericId;
-        workspaceDetails = invokeurl
-        [
-            url : workspaceUrl
-            type : GET
-            connection : "zenkitconnect"
-        ];
-        
-        if(workspaceDetails != null)
-        {
-            // Debug: log workspace response
-            debugWsResponse = workspaceDetails.toString();
-            
-            // Get the short_id from workspace (this is the URL-friendly ID)
-            wsShortId = workspaceDetails.get("short_id");
-            if(wsShortId != null && wsShortId != "")
-            {
-                workspaceId = wsShortId;
-            }
-            
-            // Also try different field name combinations
-            if((wsShortId == null || wsShortId == "") && workspaceDetails.get("slug") != null)
-            {
-                wsShortId = workspaceDetails.get("slug").toString();
-                if(wsShortId != null && wsShortId != "")
-                {
-                    workspaceId = wsShortId;
-                }
-            }
-            
-            // Also try camelCase variations
-            if((wsShortId == null || wsShortId == "") && workspaceDetails.get("shortId") != null)
-            {
-                wsShortId = workspaceDetails.get("shortId").toString();
-                if(wsShortId != null && wsShortId != "")
-                {
-                    workspaceId = wsShortId;
-                }
-            }
-        }
-    }
-    catch(e)
-    {
-        // If fetch fails, keep the numeric ID we have
-    }
-}
+// Workspace short_id already fetched from list details response
 try
 {
     schemaURL = "https://base.zenkit.com/api/v1/lists/" + listId + "/elements";
@@ -344,47 +287,20 @@ if(elements == null)
     return response;
 }
 
-// Get workspace ID from schema (should be available in the first element) - only if not already fetched
+// Get list ID from schema (should be available in the first element)
+debugSchemaElement = "";
 if(elements.size() > 0)
 {
     firstEl = elements.get(0);
     
-    // Try to get workspace short_id from schema element using multiple field name variations
-    schemaWorkspaceId = firstEl.get("workspace_short_id");
-    if(schemaWorkspaceId == null || schemaWorkspaceId == "")
+    // Debug: capture full schema element to see all available fields
+    try
     {
-        schemaWorkspaceId = firstEl.get("workspaceShortId");
+        debugSchemaElement = firstEl.toString();
     }
-    if(schemaWorkspaceId == null || schemaWorkspaceId == "")
+    catch(e)
     {
-        schemaWorkspaceId = firstEl.get("workspace_shortId");
-    }
-    if(schemaWorkspaceId == null || schemaWorkspaceId == "")
-    {
-        schemaWorkspaceId = firstEl.get("shortWorkspaceId");
-    }
-    if(schemaWorkspaceId != null && schemaWorkspaceId != "")
-    {
-        workspaceId = schemaWorkspaceId;
-    }
-    
-    // Try to get list short_id from schema element using multiple field name variations
-    schemaListId = firstEl.get("list_short_id");
-    if(schemaListId == null || schemaListId == "")
-    {
-        schemaListId = firstEl.get("listShortId");
-    }
-    if(schemaListId == null || schemaListId == "")
-    {
-        schemaListId = firstEl.get("list_shortId");
-    }
-    if(schemaListId == null || schemaListId == "")
-    {
-        schemaListId = firstEl.get("shortListId");
-    }
-    if(schemaListId != null && schemaListId != "")
-    {
-        listSlug = schemaListId;
+        debugSchemaElement = "Error capturing schema";
     }
 }
 
@@ -675,7 +591,7 @@ if(taskUrl == null || taskUrl == "")
         {
             if(debugListResponse != null && debugListResponse != "")
             {
-                debugInfo = debugInfo + " LIST:" + debugListResponse.substring(0, 100);
+                debugInfo = debugInfo + " LIST:" + debugListResponse.substring(0, 150);
             }
         }
         catch(e)
@@ -685,9 +601,9 @@ if(taskUrl == null || taskUrl == "")
         
         try
         {
-            if(debugWsResponse != null)
+            if(debugSchemaElement != null && debugSchemaElement != "")
             {
-                debugInfo = debugInfo + " WS:" + debugWsResponse.substring(0, 80);
+                debugInfo = debugInfo + " SCHEMA:" + debugSchemaElement.substring(0, 200);
             }
         }
         catch(e)
@@ -719,6 +635,31 @@ successMsg = "✅ Task created!";
 try
 {
     successMsg = "✅ Task *" + taskName + "* created!\n🔗 " + taskUrl;
+    
+    // Always append debug info
+    try
+    {
+        if(debugListResponse != null && debugListResponse != "")
+        {
+            successMsg = successMsg + "\n\n[DEBUG LIST] " + debugListResponse.substring(0, 200);
+        }
+    }
+    catch(e)
+    {
+        // Ignore
+    }
+    
+    try
+    {
+        if(debugSchemaElement != null && debugSchemaElement != "")
+        {
+            successMsg = successMsg + "\n[DEBUG SCHEMA] " + debugSchemaElement.substring(0, 300);
+        }
+    }
+    catch(e)
+    {
+        // Ignore
+    }
 }
 catch(e)
 {
