@@ -204,8 +204,8 @@ if(listIdValue != null && listIdValue != "")
 {
 	try
 	{
-		// Try the correct endpoint - /lists/{listId}/entries (not /entries/search)
-		entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries";
+		// Use the correct endpoint - /lists/{listId}/entries/search (GET)
+		entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/search";
 		info "API URL: " + entriesSearchUrl;
 		
 		entriesResponse = invokeurl
@@ -221,42 +221,76 @@ if(listIdValue != null && listIdValue != "")
 		{
 			entriesList = List();
 			
-			// Extract items from response
-			if(entriesResponse.containsKey("items"))
+			// Check if response is a Map (has an error or wrapper)
+			try
 			{
-				entriesList = entriesResponse.get("items");
-				info "Found items array with " + entriesList.size() + " items";
-			}
-			else if(entriesResponse.containsKey("results"))
-			{
-				entriesList = entriesResponse.get("results");
-				info "Found results array with " + entriesList.size() + " items";
-			}
-			else
-			{
-				try
+				respKeys = entriesResponse.keys();
+				info "Response has keys: " + respKeys.toString();
+				
+				// Check for error
+				if(entriesResponse.containsKey("error"))
 				{
-					itemCount = 0;
-					for each  item in entriesResponse
+					info "API returned error: " + entriesResponse.get("error");
+				}
+				
+				// Extract items from response
+				if(entriesResponse.containsKey("items"))
+				{
+					entriesList = entriesResponse.get("items");
+					info "Found items array with " + entriesList.size() + " items";
+				}
+				else if(entriesResponse.containsKey("results"))
+				{
+					entriesList = entriesResponse.get("results");
+					info "Found results array with " + entriesList.size() + " items";
+				}
+				else if(entriesResponse.containsKey("entries"))
+				{
+					entriesList = entriesResponse.get("entries");
+					info "Found entries array with " + entriesList.size() + " items";
+				}
+				else if(entriesResponse.containsKey("elements"))
+				{
+					entriesList = entriesResponse.get("elements");
+					info "Found elements array with " + entriesList.size() + " elements";
+				}
+				else if(entriesResponse.containsKey("data"))
+				{
+					entriesList = entriesResponse.get("data");
+					info "Found data array with " + entriesList.size() + " items";
+				}
+				else
+				{
+					// Try direct iteration
+					info "No standard wrapper found, trying direct iteration";
+					try
 					{
-						entriesList.add(item);
-						itemCount = itemCount + 1;
+						itemCount = 0;
+						for each  item in entriesResponse
+						{
+							entriesList.add(item);
+							itemCount = itemCount + 1;
+						}
+						info "Direct iteration found " + itemCount + " items";
 					}
-					info "Direct iteration found " + itemCount + " items";
+					catch (e)
+					{
+						info "Response is not iterable";
+					}
 				}
-				catch (e)
-				{
-					info "Response is not iterable";
-				}
+			}
+			catch (e)
+			{
+				info "Error checking response structure: " + e;
 			}
 			
-			info "Processing " + entriesList.size() + " entries";
+			info "Total entries collected: " + entriesList.size();
 			
 			for each  entry in entriesList
 			{
 				try 
 				{
-					entryName = entry.get("name");
+					entryName = entry.get("displayString");
 					entryId = entry.get("id");
 					info "Entry: id=" + entryId + ", name=" + entryName;
 					
@@ -274,6 +308,10 @@ if(listIdValue != null && listIdValue != "")
 					info "Error parsing entry: " + e;
 				}
 			}
+		}
+		else
+		{
+			info "API Response is null";
 		}
 	}
 	catch (e)
