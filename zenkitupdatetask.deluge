@@ -1,0 +1,253 @@
+if(id == "Update Task")
+{
+	response = Map();
+	response.put("type","form");
+	response.put("title","Update Task ✏️");
+	response.put("name","updatetask");
+	response.put("button_label","Load Tasks");
+	
+	workspaceOptions = List();
+	memberOptions = List();
+	listOptions = List();
+	taskOptions = List();
+	memberMap = Map();
+	
+	// ========================================
+	// FETCH WORKSPACES (with error handling)
+	// ========================================
+	try
+	{
+		workspaces = invokeurl
+		[
+			url : "https://base.zenkit.com/api/v1/users/me/workspaces"
+			type : GET
+			connection : "zenkitconnect"
+		];
+		for each  ws in workspaces
+		{
+			opt = Map();
+			wsName = ws.get("name");
+			wsId = ws.get("id") + "";
+			opt.put("label",wsName);
+			opt.put("value",wsId);
+			workspaceOptions.add(opt);
+		}
+	}
+	catch(e)
+	{
+		errOpt = Map();
+		errOpt.put("label","❌ Error: Please reconnect Zenkit OAuth");
+		errOpt.put("value","");
+		workspaceOptions.add(errOpt);
+	}
+	
+	// ========================================
+	// FETCH ORGANIZATION ID (for members)
+	// ========================================
+	orgId = "";
+	try
+	{
+		meResponse = invokeurl
+		[
+			url : "https://base.zenkit.com/api/v1/users/me"
+			type : GET
+			connection : "zenkitconnect"
+		];
+		if(meResponse.get("organizationId") != null)
+		{
+			orgId = meResponse.get("organizationId") + "";
+		}
+	}
+	catch(e)
+	{
+		// Silent - org fetch failed
+	}
+	
+	// ========================================
+	// FETCH TEAM MEMBERS (with error handling)
+	// ========================================
+	if(orgId != "" && orgId != "null")
+	{
+		try 
+		{
+			membersResponse = invokeurl
+			[
+				url : "https://base.zenkit.com/api/v1/organizations/" + orgId + "/users"
+				type : GET
+				connection : "zenkitconnect"
+			];
+			membersList = List();
+			if(membersResponse.get("users") != null)
+			{
+				membersList = membersResponse.get("users");
+			}
+			for each  member in membersList
+			{
+				try 
+				{
+					mOpt = Map();
+					fullName = member.get("displayname");
+					if(fullName == null || fullName == "")
+					{
+						fullName = member.get("fullname");
+					}
+					memberId = member.get("id");
+					if(memberId != null && fullName != null && fullName != "")
+					{
+						mOpt.put("label",fullName);
+						mOpt.put("value",memberId + "");
+						memberOptions.add(mOpt);
+						memberMap.put(memberId + "",fullName);
+					}
+				}
+				catch (e)
+				{
+					// Silent error handling
+				}
+			}
+		}
+		catch (e)
+		{
+			// Silent error handling
+		}
+	}
+	if(memberOptions.size() == 0)
+	{
+		noMember = Map();
+		noMember.put("label","No members found");
+		noMember.put("value","");
+		memberOptions.add(noMember);
+	}
+	
+	// ========================================
+	// FETCH ALL LISTS FROM ALL WORKSPACES (with error handling)
+	// ========================================
+	try
+	{
+		for each  workspace in workspaceOptions
+		{
+			wsId = workspace.get("value");
+			wsName = workspace.get("label");
+			
+			if(wsId != "")
+			{
+				try 
+				{
+					headers = Map();
+					headers.put("Content-Type","application/json");
+					listsUrl = "https://base.zenkit.com/api/v1/workspaces/" + wsId + "/lists";
+					listsResponse = invokeurl
+					[
+						url : listsUrl
+						type : GET
+						headers : headers
+						connection : "zenkitconnect"
+					];
+					if(listsResponse != null)
+					{
+						listsList = List();
+						try 
+						{
+							responseKeys = listsResponse.keys();
+							if(responseKeys != null && responseKeys.contains("items"))
+							{
+								listsList = listsResponse.get("items");
+							}
+							else
+							{
+								try 
+								{
+									listCount = 0;
+									for each  item in listsResponse
+									{
+										listCount = listCount + 1;
+									}
+									listsList = listsResponse;
+								}
+								catch (e2)
+								{
+									listsList = List();
+								}
+							}
+						}
+						catch (e1)
+						{
+							listsList = List();
+						}
+						for each  list in listsList
+						{
+							try 
+							{
+								listName = list.get("name");
+								listId = list.get("id");
+								if(listName != null && listName != "" && listId != null)
+								{
+									lOpt = Map();
+									displayLabel = listName + " (" + wsName + ")";
+									lOpt.put("label",displayLabel);
+									lOpt.put("value",listId + "");
+									listOptions.add(lOpt);
+								}
+							}
+							catch (e)
+							{
+								// Silent error handling
+							}
+						}
+					}
+				}
+				catch (e)
+				{
+					// Silent error handling
+				}
+			}
+		}
+	}
+	catch(e)
+	{
+		// Lists fetch failed
+	}
+	
+	if(listOptions.size() == 0)
+	{
+		noList = Map();
+		noList.put("label","No lists found - please check Zenkit OAuth connection");
+		noList.put("value","");
+		listOptions.add(noList);
+	}
+	
+	// ========================================
+	// BUILD INPUTS - STEP 1: SELECT LIST
+	// ========================================
+	inputsList = List();
+	
+	// 1. WORKSPACE DROPDOWN
+	inp0 = Map();
+	inp0.put("label","Select Workspace");
+	inp0.put("name","workspaceId");
+	inp0.put("type","select");
+	inp0.put("mandatory",true);
+	inp0.put("placeholder","Choose workspace");
+	inp0.put("options",workspaceOptions);
+	inputsList.add(inp0);
+	
+	// 2. LIST/PROJECT DROPDOWN
+	inp1 = Map();
+	inp1.put("label","Select Project/List");
+	inp1.put("name","listId");
+	inp1.put("type","select");
+	inp1.put("mandatory",true);
+	inp1.put("placeholder","Choose project");
+	inp1.put("options",listOptions);
+	inputsList.add(inp1);
+	
+	response.put("inputs",inputsList);
+	
+	// SUBMIT ACTION - Click "Load Tasks" to proceed
+	action = Map();
+	action.put("type","invoke.function");
+	action.put("name","Update Task - Get Tasks");
+	response.put("action",action);
+	
+	return response;
+}
