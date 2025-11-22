@@ -183,8 +183,85 @@ if(personField != null)
 }
 
 // =============================
-// FETCH SCHEMA
+// FETCH LIST DETAILS (to get list slug and workspace ID)
 // =============================
+listSlug = "";
+listName = "";
+workspaceId = "";
+workspaceNumericId = "";
+listDetailsUrl = "https://base.zenkit.com/api/v1/lists/" + listId;
+try
+{
+    listDetails = invokeurl
+    [
+        url : listDetailsUrl
+        type : GET
+        connection : "zenkitconnect"
+    ];
+    
+    if(listDetails != null)
+    {
+        // Get the short_id first (this is the URL-friendly ID)
+        listSlug = listDetails.get("short_id");
+        if(listSlug == null || listSlug == "")
+        {
+            // Fallback to slug if short_id doesn't exist
+            listSlug = listDetails.get("slug");
+        }
+        
+        // Also get the list name as fallback
+        listName = listDetails.get("name");
+        
+        // Get workspace ID - try different field names
+        workspaceId = listDetails.get("workspace_id");
+        if(workspaceId == null || workspaceId == "")
+        {
+            workspaceId = listDetails.get("workspaceId");
+        }
+        if(workspaceId == null || workspaceId == "")
+        {
+            workspaceId = listDetails.get("workspace");
+        }
+        
+        // Store numeric workspace ID to fetch the short_id later if needed
+        workspaceNumericId = workspaceId;
+    }
+}
+catch(e)
+{
+    // If fetch fails, continue with what we have
+}
+
+// =============================
+// FETCH WORKSPACE DETAILS (to get workspace short_id)
+// =============================
+if(workspaceNumericId != null && workspaceNumericId != "")
+{
+    try
+    {
+        workspaceUrl = "https://base.zenkit.com/api/v1/workspaces/" + workspaceNumericId;
+        workspaceDetails = invokeurl
+        [
+            url : workspaceUrl
+            type : GET
+            connection : "zenkitconnect"
+        ];
+        
+        if(workspaceDetails != null)
+        {
+            // Get the short_id from workspace (this is the URL-friendly ID)
+            wsShortId = workspaceDetails.get("short_id");
+            if(wsShortId != null && wsShortId != "")
+            {
+                workspaceId = wsShortId;
+            }
+        }
+    }
+    catch(e)
+    {
+        // If fetch fails, keep the numeric ID we have
+    }
+}
 try
 {
     schemaURL = "https://base.zenkit.com/api/v1/lists/" + listId + "/elements";
@@ -235,12 +312,26 @@ if(elements == null)
     return response;
 }
 
-// Get workspace ID from schema (should be available in the first element)
-workspaceId = "";
-if(elements.size() > 0)
+// Get workspace ID from schema (should be available in the first element) - only if not already fetched
+if((workspaceId == null || workspaceId == "") && elements.size() > 0)
 {
     firstEl = elements.get(0);
+    
+    // Try different possible field names for workspace ID
     workspaceId = firstEl.get("workspace_id");
+    if(workspaceId == null || workspaceId == "")
+    {
+        workspaceId = firstEl.get("workspaceId");
+    }
+    if(workspaceId == null || workspaceId == "")
+    {
+        workspaceId = firstEl.get("workspace");
+    }
+    if(workspaceId == null)
+    {
+        workspaceId = "";
+    }
+    // Don't overwrite listSlug here - it was already fetched from list details
 }
 
 taskUUID = "";
@@ -488,41 +579,50 @@ if(uuid == null)
 }
 
 // Get the correct task URL from Zenkit response
-// Try to get app_url first (direct link to task)
 taskUrl = res.get("app_url");
 
-// If app_url is empty, construct from response data using slug
+// If app_url is empty, construct from response data
 if(taskUrl == null || taskUrl == "")
 {
     try
     {
-        // Get slug from response (used for user-friendly URLs)
-        slug = res.get("slug");
-        
-        // If slug exists, use it to build the URL
-        if(slug != null && slug != "")
+        // Try to get slug from response - try multiple possible field names
+        entrySlug = res.get("slug");
+        if(entrySlug == null || entrySlug == "null" || entrySlug == "")
         {
-            taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + slug;
+            entrySlug = res.get("short_id");
+        }
+        if(entrySlug == null || entrySlug == "null" || entrySlug == "")
+        {
+            entrySlug = res.get("name");
+        }
+        
+        // If still no slug, convert task name to slug format (like the reference code does)
+        if(entrySlug == null || entrySlug == "null" || entrySlug == "")
+        {
+            entrySlug = taskName.toLowerCase();
+            entrySlug = entrySlug.replaceAll(" ", "-");
+        }
+        
+        // Prepare list slug - use actual slug, or convert name to slug format if needed
+        finalListSlug = listSlug;
+        if((finalListSlug == null || finalListSlug == "") && listName != null && listName != "")
+        {
+            // Convert name to slug format (lowercase, spaces to hyphens)
+            finalListSlug = listName.toLowerCase();
+            finalListSlug = finalListSlug.replaceAll(" ", "-");
+        }
+        
+        // If slug exists and we have workspace/list slugs, build the correct URL
+        if(entrySlug != null && entrySlug != "" && entrySlug != "null" && workspaceId != null && workspaceId != "" && finalListSlug != null && finalListSlug != "")
+        {
+            // Correct format: https://base.zenkit.com/i/{workspace_id}/{list_slug}/{entry_slug}
+            taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + finalListSlug + "/" + entrySlug;
         }
         else
         {
-            // If no slug, try to get id field
-            entryId = res.get("id");
-            if(entryId == null)
-            {
-                entryId = uuid;
-            }
-            
-            // Construct URL using workspace, list, and entry IDs
-            // Format: https://base.zenkit.com/i/{workspace}/{list}/{entry}
-            if(workspaceId != null && workspaceId != "")
-            {
-                taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + listId + "/" + entryId;
-            }
-            else
-            {
-                taskUrl = "https://base.zenkit.com/item/" + uuid;
-            }
+            // Fallback: use UUID
+            taskUrl = "https://base.zenkit.com/item/" + uuid;
         }
     }
     catch(e)
