@@ -55,6 +55,19 @@ if(taskName == "")
     return response;
 }
 
+if(taskName == null)
+{
+    try
+    {
+        response.put("text","❌ Task name is null");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
+    return response;
+}
+
 // LIST ID
 listField = formValues.get("listId");
 listId = "";
@@ -78,6 +91,19 @@ if(listId == "")
     try
     {
         response.put("text","❌ List ID required");
+    }
+    catch(e)
+    {
+        response.put("text","Error");
+    }
+    return response;
+}
+
+if(listId == null)
+{
+    try
+    {
+        response.put("text","❌ List ID is null");
     }
     catch(e)
     {
@@ -162,6 +188,18 @@ if(personField != null)
 try
 {
     schemaURL = "https://base.zenkit.com/api/v1/lists/" + listId + "/elements";
+    if(schemaURL == null || schemaURL == "")
+    {
+        try
+        {
+            response.put("text","❌ Failed to build schema URL");
+        }
+        catch(e)
+        {
+            response.put("text","Error");
+        }
+        return response;
+    }
     schema = invokeurl
     [
         url : schemaURL
@@ -254,6 +292,9 @@ entry = Map();
 taskKey = taskUUID + "_text";
 entry.put(taskKey, taskName);
 
+// NOTE: Optional fields (category, date, person) are skipped if empty or not found
+// This ensures we can create a task with just the task name
+
 // CATEGORY - Safe conversion with error handling
 if(categoryId != "" && catUUID != "")
 {
@@ -280,7 +321,7 @@ if(dueDate != "" && dateUUID != "")
         entry.put(dateKey, dueDate);
         entry.put(dateUUID + "_hasTime", false);
         entry.put(dateUUID + "_endDate", null);
-        entry.put(dateUUID + "_timezone", "UTC");
+        // NOTE: Do NOT include _timezone as a separate key - Zenkit rejects it
     }
     catch(e)
     {
@@ -308,7 +349,22 @@ if(personId != "" && personUUID != "")
 // =============================
 // POST ENTRY TO ZENKIT
 // =============================
-postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
+try
+{
+    postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
+}
+catch(e)
+{
+    try
+    {
+        response.put("text", "❌ Invalid list ID");
+    }
+    catch(e2)
+    {
+        response.put("text", "❌ Error");
+    }
+    return response;
+}
 
 headers = Map();
 try
@@ -326,25 +382,33 @@ try
     [
         url : postUrl
         type : POST
+        parameters : toString(entry)
         headers : headers
-        body : entry
         connection : "zenkitconnect"
     ];
 }
 catch(e)
 {
+    exMsg = "Unknown error";
     try
     {
-        response.put("text", "❌ Failed to post to Zenkit - Check auth and field UUIDs");
+        exMsg = e.message;
     }
     catch(e2)
     {
-        response.put("text", "❌ Error");
+        exMsg = e.toString();
+    }
+    try
+    {
+        response.put("text", "❌ Zenkit error: " + exMsg);
+    }
+    catch(e3)
+    {
+        response.put("text", "❌ Failed to post to Zenkit");
     }
     return response;
 }
 
-// Check if we got an error response from Zenkit
 if(res == null)
 {
     try
