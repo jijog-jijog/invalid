@@ -216,7 +216,7 @@ try
             workspaceId = listDetails.get("slug");
         }
         
-        // Get list short_id - try different field names
+        // Get list short_id - try different field names (kept for reference but not used in URL)
         listSlug = listDetails.get("listShortId");
         if(listSlug == null || listSlug == "")
         {
@@ -556,6 +556,13 @@ if(taskUrl == null || taskUrl == "")
 {
     try
     {
+        // Try to get entry short_id from response
+        entryShortId = res.get("shortId");
+        if(entryShortId == null || entryShortId == "")
+        {
+            entryShortId = res.get("short_id");
+        }
+        
         // Try to get slug from response - try multiple possible field names
         entrySlug = res.get("slug");
         if(entrySlug == null || entrySlug == "null" || entrySlug == "")
@@ -574,17 +581,8 @@ if(taskUrl == null || taskUrl == "")
             entrySlug = entrySlug.replaceAll(" ", "-");
         }
         
-        // Prepare list slug - use actual slug, or convert name to slug format if needed
-        finalListSlug = listSlug;
-        if((finalListSlug == null || finalListSlug == "") && listName != null && listName != "")
-        {
-            // Convert name to slug format (lowercase, spaces to hyphens)
-            finalListSlug = listName.toLowerCase();
-            finalListSlug = finalListSlug.replaceAll(" ", "-");
-        }
-        
-        // DEBUG: Create debug message with actual values - include more info
-        debugInfo = "[WS='" + workspaceId + "' LS='" + listSlug + "' ES='" + entrySlug + "']";
+        // DEBUG: Create debug message with actual values
+        debugInfo = "[WS='" + workspaceId + "' ES='" + entryShortId + "' SLUG='" + entrySlug + "']";
         
         // Also try to show the list, workspace and schema element structure
         try
@@ -611,11 +609,11 @@ if(taskUrl == null || taskUrl == "")
             // Ignore
         }
         
-        // If slug exists and we have workspace/list slugs, build the correct URL
-        if(entrySlug != null && entrySlug != "" && entrySlug != "null" && workspaceId != null && workspaceId != "" && finalListSlug != null && finalListSlug != "")
+        // Build URL with correct format: workspace_id / entry_short_id / entry_slug
+        if(entryShortId != null && entryShortId != "" && entrySlug != null && entrySlug != "" && entrySlug != "null" && workspaceId != null && workspaceId != "")
         {
-            // Correct format: https://base.zenkit.com/i/{workspace_id}/{list_slug}/{entry_slug}
-            taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + finalListSlug + "/" + entrySlug;
+            // Correct format: https://base.zenkit.com/i/{workspace_id}/{entry_short_id}/{entry_slug}
+            taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + entryShortId + "/" + entrySlug;
         }
         else
         {
@@ -654,6 +652,18 @@ try
         if(debugSchemaElement != null && debugSchemaElement != "")
         {
             successMsg = successMsg + "\n[DEBUG SCHEMA] " + debugSchemaElement.substring(0, 300);
+        }
+    }
+    catch(e)
+    {
+        // Ignore
+    }
+    
+    try
+    {
+        if(res != null)
+        {
+            successMsg = successMsg + "\n[DEBUG ENTRY] " + res.toString().substring(0, 300);
         }
     }
     catch(e)
