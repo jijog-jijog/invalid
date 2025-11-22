@@ -270,7 +270,12 @@ if(res == null)
 uuid = res.get("uuid");
 if(uuid == null)
 {
-    errMsg = res.toString();
+    errMsg = "Unknown Zenkit error";
+    resStr = res.toString();
+    if(resStr != null && resStr != "")
+    {
+        errMsg = resStr;
+    }
     response.put("text","❌ Zenkit Error: " + errMsg);
     return response;
 }
@@ -280,9 +285,15 @@ uuid = res.get("uuid");
 taskUrl = "https://base.zenkit.com/item/" + uuid;
 
 successMsg = "✅ Task *" + taskName + "* created!\n🔗 " + taskUrl;
-if(assignToName != "")
+if(assignToName != null && assignToName != "")
 {
     successMsg = successMsg + "\n👤 Assigned to: " + assignToName;
+}
+
+// FINAL NULL-SAFETY CHECK
+if(successMsg == null)
+{
+    successMsg = "✅ Task created successfully!";
 }
 
 response.put("text", successMsg);
