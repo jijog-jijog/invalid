@@ -189,6 +189,7 @@ listSlug = "";
 listName = "";
 workspaceId = "";
 workspaceNumericId = "";
+debugListResponse = "";
 listDetailsUrl = "https://base.zenkit.com/api/v1/lists/" + listId;
 try
 {
@@ -201,21 +202,26 @@ try
     
     if(listDetails != null)
     {
-        // Debug: log what we get from list details
-        debugListKeys = listDetails.toString();
+        // Debug: log list response
+        debugListResponse = listDetails.toString();
         
-        // Get the short_id first (this is the URL-friendly ID)
+        // Try all possible field combinations for list slug
+        // Priority: short_id > slug > id
         listSlug = listDetails.get("short_id");
         if(listSlug == null || listSlug == "")
         {
-            // Fallback to slug if short_id doesn't exist
             listSlug = listDetails.get("slug");
+        }
+        if(listSlug == null || listSlug == "")
+        {
+            listSlug = listDetails.get("id");
         }
         
         // Also get the list name as fallback
         listName = listDetails.get("name");
         
         // Get workspace ID - try different field names
+        // Priority: workspace_id > workspaceId > workspace
         workspaceId = listDetails.get("workspace_id");
         if(workspaceId == null || workspaceId == "")
         {
@@ -252,11 +258,34 @@ if(workspaceNumericId != null && workspaceNumericId != "")
         
         if(workspaceDetails != null)
         {
+            // Debug: log workspace response
+            debugWsResponse = workspaceDetails.toString();
+            
             // Get the short_id from workspace (this is the URL-friendly ID)
             wsShortId = workspaceDetails.get("short_id");
             if(wsShortId != null && wsShortId != "")
             {
                 workspaceId = wsShortId;
+            }
+            
+            // Also try different field name combinations
+            if((wsShortId == null || wsShortId == "") && workspaceDetails.get("slug") != null)
+            {
+                wsShortId = workspaceDetails.get("slug").toString();
+                if(wsShortId != null && wsShortId != "")
+                {
+                    workspaceId = wsShortId;
+                }
+            }
+            
+            // Also try camelCase variations
+            if((wsShortId == null || wsShortId == "") && workspaceDetails.get("shortId") != null)
+            {
+                wsShortId = workspaceDetails.get("shortId").toString();
+                if(wsShortId != null && wsShortId != "")
+                {
+                    workspaceId = wsShortId;
+                }
             }
         }
     }
@@ -316,25 +345,47 @@ if(elements == null)
 }
 
 // Get workspace ID from schema (should be available in the first element) - only if not already fetched
-if((workspaceId == null || workspaceId == "") && elements.size() > 0)
+if(elements.size() > 0)
 {
     firstEl = elements.get(0);
     
-    // Try different possible field names for workspace ID
-    workspaceId = firstEl.get("workspace_id");
-    if(workspaceId == null || workspaceId == "")
+    // Try to get workspace short_id from schema element using multiple field name variations
+    schemaWorkspaceId = firstEl.get("workspace_short_id");
+    if(schemaWorkspaceId == null || schemaWorkspaceId == "")
     {
-        workspaceId = firstEl.get("workspaceId");
+        schemaWorkspaceId = firstEl.get("workspaceShortId");
     }
-    if(workspaceId == null || workspaceId == "")
+    if(schemaWorkspaceId == null || schemaWorkspaceId == "")
     {
-        workspaceId = firstEl.get("workspace");
+        schemaWorkspaceId = firstEl.get("workspace_shortId");
     }
-    if(workspaceId == null)
+    if(schemaWorkspaceId == null || schemaWorkspaceId == "")
     {
-        workspaceId = "";
+        schemaWorkspaceId = firstEl.get("shortWorkspaceId");
     }
-    // Don't overwrite listSlug here - it was already fetched from list details
+    if(schemaWorkspaceId != null && schemaWorkspaceId != "")
+    {
+        workspaceId = schemaWorkspaceId;
+    }
+    
+    // Try to get list short_id from schema element using multiple field name variations
+    schemaListId = firstEl.get("list_short_id");
+    if(schemaListId == null || schemaListId == "")
+    {
+        schemaListId = firstEl.get("listShortId");
+    }
+    if(schemaListId == null || schemaListId == "")
+    {
+        schemaListId = firstEl.get("list_shortId");
+    }
+    if(schemaListId == null || schemaListId == "")
+    {
+        schemaListId = firstEl.get("shortListId");
+    }
+    if(schemaListId != null && schemaListId != "")
+    {
+        listSlug = schemaListId;
+    }
 }
 
 taskUUID = "";
@@ -616,8 +667,33 @@ if(taskUrl == null || taskUrl == "")
             finalListSlug = finalListSlug.replaceAll(" ", "-");
         }
         
-        // DEBUG: Create debug message with actual values
+        // DEBUG: Create debug message with actual values - include more info
         debugInfo = "[WS='" + workspaceId + "' LS='" + listSlug + "' ES='" + entrySlug + "']";
+        
+        // Also try to show the list, workspace and schema element structure
+        try
+        {
+            if(debugListResponse != null && debugListResponse != "")
+            {
+                debugInfo = debugInfo + " LIST:" + debugListResponse.substring(0, 100);
+            }
+        }
+        catch(e)
+        {
+            // Ignore
+        }
+        
+        try
+        {
+            if(debugWsResponse != null)
+            {
+                debugInfo = debugInfo + " WS:" + debugWsResponse.substring(0, 80);
+            }
+        }
+        catch(e)
+        {
+            // Ignore
+        }
         
         // If slug exists and we have workspace/list slugs, build the correct URL
         if(entrySlug != null && entrySlug != "" && entrySlug != "null" && workspaceId != null && workspaceId != "" && finalListSlug != null && finalListSlug != "")
