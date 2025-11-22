@@ -251,15 +251,8 @@ if(taskUUID == "")
 // BUILD PAYLOAD
 // =============================
 entry = Map();
-try
-{
-    taskKey = taskUUID + "_text";
-    entry.put(taskKey, taskName);
-}
-catch(e)
-{
-    // Failed to add task, but continue
-}
+taskKey = taskUUID + "_text";
+entry.put(taskKey, taskName);
 
 // CATEGORY - Safe conversion with error handling
 if(categoryId != "" && catUUID != "")
@@ -315,20 +308,20 @@ if(personId != "" && personUUID != "")
 // =============================
 // POST ENTRY TO ZENKIT
 // =============================
+postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
+
+headers = Map();
 try
 {
-    postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
+    headers.put("Content-Type","application/json");
+}
+catch(e)
+{
+    // Use empty headers if put fails
+}
 
-    headers = Map();
-    try
-    {
-        headers.put("Content-Type","application/json");
-    }
-    catch(e)
-    {
-        // Use empty headers if put fails
-    }
-
+try
+{
     res = invokeurl
     [
         url : postUrl
@@ -342,15 +335,16 @@ catch(e)
 {
     try
     {
-        response.put("text", "❌ Failed to post to Zenkit");
+        response.put("text", "❌ Failed to post to Zenkit - Check auth and field UUIDs");
     }
     catch(e2)
     {
-        response.put("text", "Error");
+        response.put("text", "❌ Error");
     }
     return response;
 }
 
+// Check if we got an error response from Zenkit
 if(res == null)
 {
     try
@@ -360,6 +354,21 @@ if(res == null)
     catch(e)
     {
         response.put("text", "Error");
+    }
+    return response;
+}
+
+// Check if response has error field
+resError = res.get("error");
+if(resError != null)
+{
+    try
+    {
+        response.put("text", "❌ Zenkit Error: " + resError.toString());
+    }
+    catch(e)
+    {
+        response.put("text", "❌ Zenkit rejected the payload");
     }
     return response;
 }
@@ -378,7 +387,7 @@ if(uuid == null)
     }
     catch(e)
     {
-        errMsg = "Zenkit Error";
+        errMsg = "No UUID in response";
     }
     try
     {
@@ -391,7 +400,7 @@ if(uuid == null)
     return response;
 }
 
-// SUCCESS
+// SUCCESS - uuid exists
 uuid = res.get("uuid");
 if(uuid == null)
 {
