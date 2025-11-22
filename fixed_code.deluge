@@ -632,44 +632,7 @@ successMsg = "✅ Task created!";
 
 try
 {
-    successMsg = "✅ Task *" + taskName + "* created!\n🔗 " + taskUrl;
-    
-    // Always append debug info
-    try
-    {
-        if(debugListResponse != null && debugListResponse != "")
-        {
-            successMsg = successMsg + "\n\n[DEBUG LIST] " + debugListResponse.substring(0, 200);
-        }
-    }
-    catch(e)
-    {
-        // Ignore
-    }
-    
-    try
-    {
-        if(debugSchemaElement != null && debugSchemaElement != "")
-        {
-            successMsg = successMsg + "\n[DEBUG SCHEMA] " + debugSchemaElement.substring(0, 300);
-        }
-    }
-    catch(e)
-    {
-        // Ignore
-    }
-    
-    try
-    {
-        if(res != null)
-        {
-            successMsg = successMsg + "\n[DEBUG ENTRY] " + res.toString().substring(0, 300);
-        }
-    }
-    catch(e)
-    {
-        // Ignore
-    }
+    successMsg = "✅ Task *" + taskName + "* created!";
 }
 catch(e)
 {
