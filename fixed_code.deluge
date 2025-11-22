@@ -1,0 +1,249 @@
+response = Map();
+
+// =====================
+// SAFE EXTRACTOR FUNCTION
+// =====================
+getSafe = function(field)
+{
+    if(field == null)
+    {
+        return "";
+    }
+    if(field instanceof Map)
+    {
+        val = field.get("value");
+        if(val == null)
+        {
+            return "";
+        }
+        return val.toString();
+    }
+    return field.toString();
+};
+
+// Initialize memberMap (for person name lookup)
+memberMap = Map();
+
+// =====================
+// READ FORM VALUES
+// =====================
+formValues = form.get("values");
+if(formValues == null)
+{
+    response.put("text","❌ Form values missing");
+    return response;
+}
+
+// ===============================
+// SAFE FIELD EXTRACTOR (Deluge compatible)
+// ===============================
+
+// TASK NAME
+taskName = getSafe(formValues.get("taskname"));
+if(taskName == "")
+{
+    response.put("text","❌ Task name required");
+    return response;
+}
+
+// LIST ID
+listId = getSafe(formValues.get("listId"));
+if(listId == "")
+{
+    response.put("text","❌ List ID required");
+    return response;
+}
+
+// DUE DATE
+dueDate = getSafe(formValues.get("dueon"));
+if(dueDate != "" && dueDate.contains("T") == false)
+{
+    dueDate = dueDate + "T00:00:00.000Z";
+}
+
+// CATEGORY
+categoryId = getSafe(formValues.get("category"));
+
+// PERSON
+personField = formValues.get("assignto");
+personId = "";
+assignToName = "";
+
+if(personField != null)
+{
+    val = personField.get("value");
+    if(val != null)
+    {
+        personId = val.toString();
+    }
+    
+    // Extract label for person name (Cliq picker format)
+    lbl = personField.get("label");
+    if(lbl != null)
+    {
+        assignToName = lbl.toString();
+    }
+}
+
+// =============================
+// FETCH SCHEMA
+// =============================
+schemaURL = "https://base.zenkit.com/api/v1/lists/" + listId + "/elements";
+schema = invokeurl
+[
+    url : schemaURL
+    type : GET
+    connection : "zenkitconnect"
+];
+
+// Handle schema response format (array only)
+elements = schema;
+if(elements == null)
+{
+    response.put("text","❌ No schema returned from Zenkit");
+    return response;
+}
+
+taskUUID = "";
+catUUID = "";
+dateUUID = "";
+personUUID = "";
+
+for each el in elements
+{
+    uuid = el.get("uuid");
+    if(uuid == null)
+    {
+        uuid = el.get("id");
+    }
+    
+    if(uuid != null && uuid != "")
+    {
+        role = el.get("resourceRole");
+        cat = el.get("elementcategory");
+
+        if(taskUUID == "" && role == "title")
+        {
+            taskUUID = uuid;
+        }
+        if(catUUID == "" && role == "stage")
+        {
+            catUUID = uuid;
+        }
+        if(dateUUID == "" && cat == 4)
+        {
+            dateUUID = uuid;
+        }
+        if(personUUID == "" && cat == 14)
+        {
+            personUUID = uuid;
+        }
+    }
+}
+
+if(taskUUID == "")
+{
+    response.put("text","❌ Task field UUID not found");
+    return response;
+}
+
+// =============================
+// BUILD PAYLOAD
+// =============================
+entry = Map();
+entry.put(taskUUID + "_text", taskName);
+
+// CATEGORY - Safe conversion with error handling
+if(categoryId != "" && catUUID != "")
+{
+    try
+    {
+        cid = categoryId.toLong();
+        cats = List();
+        cats.add(cid);
+        entry.put(catUUID + "_categories", cats);
+    }
+    catch(e)
+    {
+        info "❌ Invalid category value: " + categoryId;
+    }
+}
+
+// DATE - Include all required Zenkit date fields
+if(dueDate != "" && dateUUID != "")
+{
+    entry.put(dateUUID + "_date", dueDate);
+    entry.put(dateUUID + "_hasTime", false);
+    entry.put(dateUUID + "_endDate", null);
+    entry.put(dateUUID + "_timezone", "UTC");
+}
+
+// PERSON - Send as persons list (NOT assignments)
+if(personId != "" && personUUID != "")
+{
+    try
+    {
+        pid = personId.toLong();
+        ppl = List();
+        ppl.add(pid);
+        entry.put(personUUID + "_persons", ppl);
+    }
+    catch(e)
+    {
+        info "❌ Person ID invalid: " + personId;
+    }
+}
+
+// =============================
+// POST ENTRY TO ZENKIT
+// =============================
+postUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries";
+
+headers = Map();
+headers.put("Content-Type","application/json");
+
+res = invokeurl
+[
+    url : postUrl
+    type : POST
+    headers : headers
+    body : entry
+    connection : "zenkitconnect"
+];
+
+if(res == null)
+{
+    response.put("text","❌ No response from Zenkit API");
+    return response;
+}
+
+uuid = res.get("uuid");
+if(uuid == null)
+{
+    errMsg = res.toString();
+    response.put("text","❌ Zenkit Error: " + errMsg);
+    return response;
+}
+
+// SUCCESS
+uuid = res.get("uuid");
+taskUrl = "https://base.zenkit.com/item/" + uuid;
+
+successMsg = "✅ Task *" + taskName + "* created!\n🔗 " + taskUrl;
+if(assignToName != "")
+{
+    successMsg = successMsg + "\n👤 Assigned to: " + assignToName;
+}
+
+response.put("text", successMsg);
+
+btn = Map();
+btn.put("label","Open in Zenkit");
+btn.put("type","+");
+btn.put("action", {"type":"open.url","data":{"web":taskUrl}});
+
+btns = List();
+btns.add(btn);
+response.put("buttons", btns);
+
+return response;
