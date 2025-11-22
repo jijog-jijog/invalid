@@ -1,35 +1,30 @@
 response = Map();
 response.put("type","form");
-response.put("title","Update Task ✏️");
+response.put("title","Update Task ✏");
 response.put("name","updatetask");
 response.put("button_label","Update");
-
 // Initialize variables from form submission with safe defaults
 workspaceIdValue = "";
 listIdValue = "";
-
 // Get form values if they exist
 formValues = form.get("values");
 info "formValues = " + formValues;
-
 if(formValues != null)
 {
 	// Extract workspaceId
 	wsIdFromForm = formValues.get("workspaceId");
 	info "wsIdFromForm raw = " + wsIdFromForm;
-	
 	if(wsIdFromForm != null)
 	{
 		wsIdStr = wsIdFromForm + "";
 		info "wsIdStr = " + wsIdStr;
-		
 		// Try to get value field directly first (if it's a Map)
-		try
+		try 
 		{
 			workspaceIdValue = wsIdFromForm.get("value") + "";
 			info "Got workspaceId from Map.value: " + workspaceIdValue;
 		}
-		catch(e1)
+		catch (e1)
 		{
 			info "Not a Map, trying string extraction";
 			// Check if it's a JSON string with value key
@@ -41,14 +36,14 @@ if(formValues != null)
 				{
 					afterValue = wsIdStr.substring(startIdx + 7);
 					numStart = afterValue.indexOf(":") + 1;
-					numEnd = afterValue.indexOf("}", numStart);
+					numEnd = afterValue.indexOf("}",numStart);
 					if(numEnd > numStart)
 					{
-						workspaceIdValue = afterValue.substring(numStart, numEnd).trim();
+						workspaceIdValue = afterValue.substring(numStart,numEnd).trim();
 						// Remove quotes if present
 						if(workspaceIdValue.startsWith("\"") && workspaceIdValue.endsWith("\""))
 						{
-							workspaceIdValue = workspaceIdValue.substring(1, workspaceIdValue.length() - 1);
+							workspaceIdValue = workspaceIdValue.substring(1,workspaceIdValue.length() - 1);
 						}
 						info "Extracted workspaceId from JSON: " + workspaceIdValue;
 					}
@@ -61,23 +56,20 @@ if(formValues != null)
 			}
 		}
 	}
-	
 	// Extract listId
 	listIdFromForm = formValues.get("listId");
 	info "listIdFromForm raw = " + listIdFromForm;
-	
 	if(listIdFromForm != null)
 	{
 		listIdStr = listIdFromForm + "";
 		info "listIdStr = " + listIdStr;
-		
 		// Try to get value field directly first (if it's a Map)
-		try
+		try 
 		{
 			listIdValue = listIdFromForm.get("value") + "";
 			info "Got listId from Map.value: " + listIdValue;
 		}
-		catch(e2)
+		catch (e2)
 		{
 			info "Not a Map, trying string extraction";
 			// Check if it's a JSON string with value key
@@ -89,14 +81,14 @@ if(formValues != null)
 				{
 					afterValue = listIdStr.substring(startIdx + 7);
 					numStart = afterValue.indexOf(":") + 1;
-					numEnd = afterValue.indexOf("}", numStart);
+					numEnd = afterValue.indexOf("}",numStart);
 					if(numEnd > numStart)
 					{
-						listIdValue = afterValue.substring(numStart, numEnd).trim();
+						listIdValue = afterValue.substring(numStart,numEnd).trim();
 						// Remove quotes if present
 						if(listIdValue.startsWith("\"") && listIdValue.endsWith("\""))
 						{
-							listIdValue = listIdValue.substring(1, listIdValue.length() - 1);
+							listIdValue = listIdValue.substring(1,listIdValue.length() - 1);
 						}
 						info "Extracted listId from JSON: " + listIdValue;
 					}
@@ -110,35 +102,31 @@ if(formValues != null)
 		}
 	}
 }
-
 info "Final: workspaceIdValue = " + workspaceIdValue + ", listIdValue = " + listIdValue;
-
 memberOptions = List();
 taskOptions = List();
 memberMap = Map();
-
 // ========================================
 // FETCH ORGANIZATION ID (for members)
 // ========================================
 orgId = "";
-try
+try 
 {
 	meResponse = invokeurl
 	[
-		url : "https://base.zenkit.com/api/v1/users/me"
-		type : GET
-		connection : "zenkitconnect"
+		url :"https://base.zenkit.com/api/v1/users/me"
+		type :GET
+		connection:"zenkitconnect"
 	];
 	if(meResponse.get("organizationId") != null)
 	{
 		orgId = meResponse.get("organizationId") + "";
 	}
 }
-catch(e)
+catch (e)
 {
 	// Silent - org fetch failed
 }
-
 // ========================================
 // FETCH TEAM MEMBERS (with error handling)
 // ========================================
@@ -148,9 +136,9 @@ if(orgId != "" && orgId != "null")
 	{
 		membersResponse = invokeurl
 		[
-			url : "https://base.zenkit.com/api/v1/organizations/" + orgId + "/users"
-			type : GET
-			connection : "zenkitconnect"
+			url :"https://base.zenkit.com/api/v1/organizations/" + orgId + "/users"
+			type :GET
+			connection:"zenkitconnect"
 		];
 		membersList = List();
 		if(membersResponse.get("users") != null)
@@ -194,45 +182,37 @@ if(memberOptions.size() == 0)
 	noMember.put("value","");
 	memberOptions.add(noMember);
 }
-
 // ========================================
 // FETCH TASKS FROM SELECTED LIST
 // ========================================
 info "Attempting to fetch tasks for listId: " + listIdValue;
-
 if(listIdValue != null && listIdValue != "")
 {
-	try
+	try 
 	{
 		// Use the correct endpoint - /lists/{listId}/entries/search (GET)
 		entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/search";
 		info "API URL: " + entriesSearchUrl;
-		
 		entriesResponse = invokeurl
 		[
-			url : entriesSearchUrl
-			type : GET
-			connection : "zenkitconnect"
+			url :entriesSearchUrl
+			type :GET
+			connection:"zenkitconnect"
 		];
-		
 		info "API Response: " + entriesResponse;
-		
 		if(entriesResponse != null)
 		{
 			entriesList = List();
-			
 			// Check if response is a Map (has an error or wrapper)
-			try
+			try 
 			{
 				respKeys = entriesResponse.keys();
 				info "Response has keys: " + respKeys.toString();
-				
 				// Check for error
 				if(entriesResponse.containsKey("error"))
 				{
 					info "API returned error: " + entriesResponse.get("error");
 				}
-				
 				// Extract items from response
 				if(entriesResponse.containsKey("items"))
 				{
@@ -263,7 +243,7 @@ if(listIdValue != null && listIdValue != "")
 				{
 					// Try direct iteration
 					info "No standard wrapper found, trying direct iteration";
-					try
+					try 
 					{
 						itemCount = 0;
 						for each  item in entriesResponse
@@ -278,15 +258,12 @@ if(listIdValue != null && listIdValue != "")
 						info "Response is not iterable";
 					}
 				}
-                
 			}
 			catch (e)
 			{
 				info "Error checking response structure: " + e;
 			}
-			
 			info "Total entries collected: " + entriesList.size();
-			
 			for each  entry in entriesList
 			{
 				try 
@@ -294,12 +271,11 @@ if(listIdValue != null && listIdValue != "")
 					entryName = entry.get("displayString");
 					entryId = entry.get("id");
 					info "Entry: id=" + entryId + ", name=" + entryName;
-					
 					if(entryName != null && entryName != "" && entryId != null)
 					{
 						tOpt = Map();
-						tOpt.put("label", entryName);
-						tOpt.put("value", entryId + "");
+						tOpt.put("label",entryName);
+						tOpt.put("value",entryId + "");
 						taskOptions.add(tOpt);
 						info "Added task option: " + entryName;
 					}
@@ -324,7 +300,6 @@ else
 {
 	info "listIdValue is empty or null: " + listIdValue;
 }
-
 if(taskOptions.size() == 0)
 {
 	emptyTask = Map();
@@ -332,26 +307,22 @@ if(taskOptions.size() == 0)
 	emptyTask.put("value","");
 	taskOptions.add(emptyTask);
 }
-
 // ========================================
 // BUILD INPUTS - STEP 2: SELECT TASK & UPDATE FIELDS
 // ========================================
 inputsList = List();
-
 // 1. HIDDEN FIELD - WORKSPACE ID
 inp0 = Map();
 inp0.put("name","workspaceId");
 inp0.put("type","hidden");
 inp0.put("value",workspaceIdValue);
 inputsList.add(inp0);
-
 // 2. HIDDEN FIELD - LIST ID
 inp1 = Map();
 inp1.put("name","listId");
 inp1.put("type","hidden");
 inp1.put("value",listIdValue);
 inputsList.add(inp1);
-
 // 3. TASK DROPDOWN
 inp2 = Map();
 inp2.put("label","Select Task");
@@ -361,7 +332,6 @@ inp2.put("mandatory",true);
 inp2.put("placeholder","Choose task to update");
 inp2.put("options",taskOptions);
 inputsList.add(inp2);
-
 // 4. TASK NAME (OPTIONAL)
 inp3 = Map();
 inp3.put("label","New Task Name");
@@ -370,7 +340,6 @@ inp3.put("placeholder","Leave blank to keep current name");
 inp3.put("type","text");
 inp3.put("mandatory",false);
 inputsList.add(inp3);
-
 // 5. DUE DATE (OPTIONAL)
 inp4 = Map();
 inp4.put("label","New Due Date");
@@ -379,7 +348,6 @@ inp4.put("type","date");
 inp4.put("placeholder","Select new due date");
 inp4.put("mandatory",false);
 inputsList.add(inp4);
-
 // 6. ASSIGN TO (OPTIONAL)
 inp5 = Map();
 inp5.put("label","Assign To");
@@ -389,7 +357,6 @@ inp5.put("mandatory",false);
 inp5.put("placeholder","Select member");
 inp5.put("options",memberOptions);
 inputsList.add(inp5);
-
 // 7. CATEGORY (OPTIONAL)
 inp6 = Map();
 inp6.put("label","Category");
@@ -398,27 +365,85 @@ inp6.put("type","select");
 inp6.put("placeholder","Select category");
 inp6.put("mandatory",false);
 categoryOptions = List();
-c1 = Map();
-c1.put("label","To-Do");
-c1.put("value","15565684");
-categoryOptions.add(c1);
-c2 = Map();
-c2.put("label","In Progress");
-c2.put("value","15565685");
-categoryOptions.add(c2);
-c3 = Map();
-c3.put("label","Done");
-c3.put("value","15565686");
-categoryOptions.add(c3);
+// Fetch category options from API
+if(listIdValue != null && listIdValue != "")
+{
+	try 
+	{
+		// Get the schema to find the category field
+		schemaUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/elements";
+		schemaResponse = invokeurl
+		[
+			url :schemaUrl
+			type :GET
+			connection:"zenkitconnect"
+		];
+		info "Schema fetched for categories";
+		// Find category field and its options
+		for each  element in schemaResponse
+		{
+			role = element.get("resourceRole");
+			cat = element.get("elementcategory");
+			// Look for stage/category field (stage role or elementcategory == 3)
+			if(role == "stage" || cat == 3)
+			{
+				info "Found category field";
+				// Get list options
+				categoryList = element.get("list");
+				if(categoryList != null)
+				{
+					for each  catItem in categoryList
+					{
+						try 
+						{
+							catOpt = Map();
+							catName = catItem.get("name");
+							catId = catItem.get("id");
+							if(catName != null && catId != null)
+							{
+								catOpt.put("label",catName);
+								catOpt.put("value",catId + "");
+								categoryOptions.add(catOpt);
+								info "Added category: " + catName + " (" + catId + ")";
+							}
+						}
+						catch (e)
+						{
+							info "Error parsing category item: " + e;
+						}
+					}
+				}
+			}
+		}
+	}
+	catch (e)
+	{
+		info "Error fetching categories from schema: " + e;
+	}
+}
+// Fallback options if API fetch failed
+if(categoryOptions.size() == 0)
+{
+	c1 = Map();
+	c1.put("label","To-Do");
+	c1.put("value","15565684");
+	categoryOptions.add(c1);
+	c2 = Map();
+	c2.put("label","In Progress");
+	c2.put("value","15565685");
+	categoryOptions.add(c2);
+	c3 = Map();
+	c3.put("label","Done");
+	c3.put("value","15565686");
+	categoryOptions.add(c3);
+	info "Using fallback category options";
+}
 inp6.put("options",categoryOptions);
 inputsList.add(inp6);
-
 response.put("inputs",inputsList);
-
 // SUBMIT ACTION
 action = Map();
 action.put("type","invoke.function");
 action.put("name","updatetaskfunction");
 response.put("action",action);
-
 return response;

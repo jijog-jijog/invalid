@@ -1,0 +1,411 @@
+
+// GET what the user clicked
+id = "";
+if(selections != null)
+{
+	selMap = selections.toMap();
+	if(selMap.get("title") != null)
+	{
+		id = selMap.get("title");
+	}
+}
+// If no selection → return menu again
+if(id == "")
+{
+	response = Map();
+	bot = Map();
+	bot.put("name","Zenkit Bot");
+	bot.put("image","https://i.imgur.com/ZSIOsEj.png");
+	response.put("bot",bot);
+	response.put("text","👋 Hello " + user.get("first_name") + "! Please select an option.");
+	// RETURN SAME MENU LIST
+	suggestionsList = List();
+	item2 = Map();
+	item2.put("title","Create Project");
+	item2.put("description","Start a new Zenkit project.");
+	item2.put("imageurl","https://img.icons8.com/color/96/project-management.png");
+	item3 = Map();
+	item3.put("title","Create Task");
+	item3.put("description","Add a new task.");
+	item3.put("imageurl","https://image2url.com/images/1763619063871-824b2f16-6809-4118-a4ff-f417c056accc.jpg");
+	item1 = Map();
+	item1.put("title","View Tasks");
+	item1.put("description","View all tasks.");
+	item1.put("imageurl","https://image2url.com/images/1763617945592-2f6c38b4-9419-4c5d-8a8c-97fec340da97.jpg");
+	item4 = Map();
+	item4.put("title","Update Task");
+	item4.put("description","Update any task.");
+	item4.put("imageurl","https://image2url.com/images/1763618901005-388511a8-1d46-4ae4-983b-11af2a063f04.jpg");
+	item5 = Map();
+	item5.put("title","Create Document");
+	item5.put("description","Create a Zenkit document.");
+	item5.put("imageurl","https://img.icons8.com/color/96/document.png");
+	suggestionsList.add(item2);
+	suggestionsList.add(item3);
+	suggestionsList.add(item1);
+	suggestionsList.add(item4);
+	suggestionsList.add(item5);
+	response.put("suggestions",suggestionsList);
+	return response;
+}
+/////////////////////////////////////////////////////////////////
+// 🟦 1️⃣ USER CLICKED: CREATE PROJECT  → OPEN FORM
+/////////////////////////////////////////////////////////////////
+if(id == "Create Project")
+{
+	response = Map();
+	response.put("type","form");
+	response.put("title","Create Project 🆕");
+	response.put("name","createproject");
+	response.put("button_label","Create");
+	// FETCH WORKSPACES
+	workspaces = invokeurl
+	[
+		url :"https://base.zenkit.com/api/v1/users/me/workspaces"
+		type :GET
+		connection:"zenkitconnect"
+	];
+	// BUILD DROPDOWN OPTIONS
+	optionsList = list();
+	for each  ws in workspaces
+	{
+		opt = Map();
+		opt.put("label",ws.get("name"));
+		opt.put("value",ws.get("id") + "");
+		optionsList.add(opt);
+	}
+	// INPUTS
+	inputsList = list();
+	// FIXED DROPDOWN (dynamic_select required)
+	inp0 = Map();
+	inp0.put("label","Select Workspace");
+	inp0.put("name","workspaceId");
+	// MUST MATCH EXACTLY
+	inp0.put("type","dynamic_select");
+	// MUST BE dynamic_select
+	inp0.put("mandatory",true);
+	inp0.put("multiple",false);
+	inp0.put("placeholder","Choose workspace");
+	inp0.put("options",optionsList);
+	inputsList.add(inp0);
+	// Project Name
+	inp1 = Map();
+	inp1.put("label","Project Name");
+	inp1.put("name","projectname");
+	inp1.put("placeholder","Eg. Marketing Team");
+	inp1.put("mandatory",true);
+	inp1.put("type","text");
+	inputsList.add(inp1);
+	response.put("inputs",inputsList);
+	// SUBMIT ACTION
+	action = Map();
+	action.put("type","invoke.function");
+	action.put("name","zenkitcreateproject");
+	response.put("action",action);
+	return response;
+}
+/////////////////////////////////////////////////////////////////
+// 🟦 2️⃣ USER CLICKED: CREATE TASK → OPEN FORM
+/////////////////////////////////////////////////////////////////
+if(id == "Create Task")
+{
+	response = Map();
+	response.put("type","form");
+	response.put("title","Create Task 📌");
+	response.put("name","createtask");
+	response.put("button_label","Create");
+	// ========================================
+	// FETCH WORKSPACES
+	// ========================================
+	workspaces = invokeurl
+	[
+		url :"https://base.zenkit.com/api/v1/users/me/workspaces"
+		type :GET
+		connection:"zenkitconnect"
+	];
+	workspaceOptions = List();
+	for each  ws in workspaces
+	{
+		opt = Map();
+		wsName = ws.get("name");
+		wsId = ws.get("id") + "";
+		opt.put("label",wsName);
+		opt.put("value",wsId);
+		workspaceOptions.add(opt);
+	}
+	// ========================================
+	// FETCH ORGANIZATION ID (for members)
+	// ========================================
+	orgId = "";
+	meResponse = invokeurl
+	[
+		url :"https://base.zenkit.com/api/v1/users/me"
+		type :GET
+		connection:"zenkitconnect"
+	];
+	if(meResponse.get("organizationId") != null)
+	{
+		orgId = meResponse.get("organizationId") + "";
+	}
+	// ========================================
+	// FETCH TEAM MEMBERS - SHOW ALL
+	// ========================================
+	memberOptions = List();
+	memberMap = Map();
+	if(orgId != "" && orgId != "null")
+	{
+		try 
+		{
+			membersResponse = invokeurl
+			[
+				url :"https://base.zenkit.com/api/v1/organizations/" + orgId + "/users"
+				type :GET
+				connection:"zenkitconnect"
+			];
+			membersList = List();
+			if(membersResponse.get("users") != null)
+			{
+				membersList = membersResponse.get("users");
+			}
+			for each  member in membersList
+			{
+				try 
+				{
+					mOpt = Map();
+					fullName = member.get("displayname");
+					if(fullName == null || fullName == "")
+					{
+						fullName = member.get("fullname");
+					}
+					memberId = member.get("id");
+					if(memberId != null && fullName != null && fullName != "")
+					{
+						mOpt.put("label",fullName);
+						mOpt.put("value",memberId + "");
+						memberOptions.add(mOpt);
+						// Store member name by ID for later lookup
+						memberMap.put(memberId + "",fullName);
+					}
+				}
+				catch (e)
+				{
+					// Silent error handling
+				}
+			}
+		}
+		catch (e)
+		{
+			// Silent error handling
+		}
+	}
+	if(memberOptions.size() == 0)
+	{
+		noMember = Map();
+		noMember.put("label","No members found");
+		noMember.put("value","");
+		memberOptions.add(noMember);
+	}
+	// ========================================
+	// FETCH ALL LISTS FROM ALL WORKSPACES
+	// ========================================
+	listOptions = List();
+	for each  workspace in workspaces
+	{
+		wsId = workspace.get("id") + "";
+		wsName = workspace.get("name");
+		try 
+		{
+			headers = Map();
+			headers.put("Content-Type","application/json");
+			listsUrl = "https://base.zenkit.com/api/v1/workspaces/" + wsId + "/lists";
+			listsResponse = invokeurl
+			[
+				url :listsUrl
+				type :GET
+				headers:headers
+				connection:"zenkitconnect"
+			];
+			if(listsResponse != null)
+			{
+				listsList = List();
+				try 
+				{
+					responseKeys = listsResponse.keys();
+					if(responseKeys != null && responseKeys.contains("items"))
+					{
+						listsList = listsResponse.get("items");
+					}
+					else
+					{
+						try 
+						{
+							listCount = 0;
+							for each  item in listsResponse
+							{
+								listCount = listCount + 1;
+							}
+							listsList = listsResponse;
+						}
+						catch (e2)
+						{
+							listsList = List();
+						}
+					}
+				}
+				catch (e1)
+				{
+					listsList = List();
+				}
+				for each  list in listsList
+				{
+					try 
+					{
+						listName = list.get("name");
+						listId = list.get("id");
+						if(listName != null && listName != "" && listId != null)
+						{
+							lOpt = Map();
+							displayLabel = listName + " (" + wsName + ")";
+							lOpt.put("label",displayLabel);
+							lOpt.put("value",listId + "");
+							listOptions.add(lOpt);
+						}
+					}
+					catch (e)
+					{
+						// Silent error handling
+					}
+				}
+			}
+		}
+		catch (e)
+		{
+			// Silent error handling
+		}
+	}
+	if(listOptions.size() == 0)
+	{
+		noList = Map();
+		noList.put("label","No lists found in any workspace");
+		noList.put("value","");
+		listOptions.add(noList);
+	}
+	// ========================================
+	// BUILD INPUTS
+	// ========================================
+	inputsList = List();
+	// 1. WORKSPACE DROPDOWN - NO DYNAMIC FUNCTION
+	inp0 = Map();
+	inp0.put("label","Select Workspace");
+	inp0.put("name","workspaceId");
+	inp0.put("type","select");
+	inp0.put("mandatory",true);
+	inp0.put("placeholder","Choose workspace");
+	inp0.put("options",workspaceOptions);
+	inputsList.add(inp0);
+	// 2. PROJECT/LIST DROPDOWN - NO DYNAMIC FUNCTION
+	inp1 = Map();
+	inp1.put("label","Select Project/List");
+	inp1.put("name","listId");
+	inp1.put("type","select");
+	inp1.put("mandatory",true);
+	inp1.put("placeholder","Choose project");
+	inp1.put("options",listOptions);
+	inputsList.add(inp1);
+	// 3. TASK NAME
+	inp2 = Map();
+	inp2.put("label","Task Name");
+	inp2.put("name","taskname");
+	inp2.put("placeholder","Enter task name");
+	inp2.put("type","text");
+	inp2.put("mandatory",true);
+	inputsList.add(inp2);
+	// 5. ASSIGN TO (Team Members) - NO DYNAMIC FUNCTION
+	inp4 = Map();
+	inp4.put("label","Assign To");
+	inp4.put("name","assignto");
+	inp4.put("type","select");
+	inp4.put("mandatory",false);
+	inp4.put("placeholder","Select member");
+	inp4.put("options",memberOptions);
+	inputsList.add(inp4);
+	// 6. DUE DATE
+	inp5 = Map();
+	inp5.put("label","Due Date");
+	inp5.put("name","dueon");
+	inp5.put("type","date");
+	inp5.put("placeholder","Select due date");
+	inp5.put("mandatory",false);
+	inputsList.add(inp5);
+	inp6 = Map();
+	inp6.put("label","Category");
+	inp6.put("name","category");
+	inp6.put("type","select");
+	inp6.put("placeholder","Select category");
+	inp6.put("mandatory",false);
+	categoryOptions = List();
+	c1 = Map();
+	c1.put("label","To-Do");
+	c1.put("value","15565684");
+	// MUST be number as string
+	categoryOptions.add(c1);
+	c2 = Map();
+	c2.put("label","In Progress");
+	c2.put("value","15565685");
+	categoryOptions.add(c2);
+	c3 = Map();
+	c3.put("label","Done");
+	c3.put("value","15565686");
+	categoryOptions.add(c3);
+	inp6.put("options",categoryOptions);
+	inputsList.add(inp6);
+	response.put("inputs",inputsList);
+	// SUBMIT ACTION
+	action = Map();
+	action.put("type","invoke.function");
+	action.put("name","zenkitcreatetask");
+	response.put("action",action);
+	return response;
+}
+/////////////////////////////////////////////////////////////////
+// 🟦 3️⃣ USER CLICKED: VIEW TASKS → OPEN FORM
+/////////////////////////////////////////////////////////////////
+if(id == "View Tasks")
+{
+	inputs = List();
+	field1 = Map();
+	field1.put("name","projectid");
+	field1.put("label","Project ID");
+	field1.put("type","text");
+	field1.put("mandatory",true);
+	inputs.add(field1);
+	form = Map();
+	form.put("type","form");
+	form.put("title","View Tasks 👁️");
+	form.put("name","viewtasks");
+	form.put("button_label","View");
+	actions = Map();
+	submitAction = Map();
+	submitAction.put("type","invoke.function");
+	submitAction.put("name","zenkit_view_tasks");
+	actions.put("submit",submitAction);
+	form.put("actions",actions);
+	form.put("inputs",inputs);
+	return form;
+}
+/////////////////////////////////////////////////////////////////
+// 🟦 4️⃣ USER CLICKED: UPDATE TASK → OPEN FORM
+/////////////////////////////////////////////////////////////////
+if(id == "Update Task")
+{
+	// Call the zenkitupdatetask function which handles the 3-step workflow
+	response = invokeurl
+	[
+		url : "zenkitupdatetask"
+		type : POST
+		connection : "zenkitconnect"
+	];
+	return response;
+}
+
+return Map();
