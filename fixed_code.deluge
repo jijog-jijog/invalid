@@ -1,26 +1,5 @@
 response = Map();
 
-// =====================
-// SAFE EXTRACTOR FUNCTION
-// =====================
-getSafe = function(field)
-{
-    if(field == null)
-    {
-        return "";
-    }
-    if(field instanceof Map)
-    {
-        val = field.get("value");
-        if(val == null)
-        {
-            return "";
-        }
-        return val.toString();
-    }
-    return field.toString();
-};
-
 // Initialize memberMap (for person name lookup)
 memberMap = Map();
 
@@ -39,7 +18,16 @@ if(formValues == null)
 // ===============================
 
 // TASK NAME
-taskName = getSafe(formValues.get("taskname"));
+taskField = formValues.get("taskname");
+taskName = "";
+if(taskField != null)
+{
+    val = taskField.get("value");
+    if(val != null)
+    {
+        taskName = val.toString();
+    }
+}
 if(taskName == "")
 {
     response.put("text","❌ Task name required");
@@ -47,7 +35,16 @@ if(taskName == "")
 }
 
 // LIST ID
-listId = getSafe(formValues.get("listId"));
+listField = formValues.get("listId");
+listId = "";
+if(listField != null)
+{
+    val = listField.get("value");
+    if(val != null)
+    {
+        listId = val.toString();
+    }
+}
 if(listId == "")
 {
     response.put("text","❌ List ID required");
@@ -55,14 +52,32 @@ if(listId == "")
 }
 
 // DUE DATE
-dueDate = getSafe(formValues.get("dueon"));
+dueField = formValues.get("dueon");
+dueDate = "";
+if(dueField != null)
+{
+    val = dueField.get("value");
+    if(val != null)
+    {
+        dueDate = val.toString();
+    }
+}
 if(dueDate != "" && dueDate.contains("T") == false)
 {
     dueDate = dueDate + "T00:00:00.000Z";
 }
 
 // CATEGORY
-categoryId = getSafe(formValues.get("category"));
+catField = formValues.get("category");
+categoryId = "";
+if(catField != null)
+{
+    val = catField.get("value");
+    if(val != null)
+    {
+        categoryId = val.toString();
+    }
+}
 
 // PERSON
 personField = formValues.get("assignto");
