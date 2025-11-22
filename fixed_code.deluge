@@ -22,10 +22,17 @@ taskField = formValues.get("taskname");
 taskName = "";
 if(taskField != null)
 {
-    val = taskField.get("value");
-    if(val != null)
+    try
     {
-        taskName = val.toString();
+        val = taskField.get("value");
+        if(val != null)
+        {
+            taskName = val.toString();
+        }
+    }
+    catch(e)
+    {
+        taskName = taskField.toString();
     }
 }
 if(taskName == "")
@@ -39,10 +46,17 @@ listField = formValues.get("listId");
 listId = "";
 if(listField != null)
 {
-    val = listField.get("value");
-    if(val != null)
+    try
     {
-        listId = val.toString();
+        val = listField.get("value");
+        if(val != null)
+        {
+            listId = val.toString();
+        }
+    }
+    catch(e)
+    {
+        listId = listField.toString();
     }
 }
 if(listId == "")
@@ -56,10 +70,17 @@ dueField = formValues.get("dueon");
 dueDate = "";
 if(dueField != null)
 {
-    val = dueField.get("value");
-    if(val != null)
+    try
     {
-        dueDate = val.toString();
+        val = dueField.get("value");
+        if(val != null)
+        {
+            dueDate = val.toString();
+        }
+    }
+    catch(e)
+    {
+        dueDate = dueField.toString();
     }
 }
 if(dueDate != "" && dueDate.contains("T") == false)
@@ -72,10 +93,17 @@ catField = formValues.get("category");
 categoryId = "";
 if(catField != null)
 {
-    val = catField.get("value");
-    if(val != null)
+    try
     {
-        categoryId = val.toString();
+        val = catField.get("value");
+        if(val != null)
+        {
+            categoryId = val.toString();
+        }
+    }
+    catch(e)
+    {
+        categoryId = catField.toString();
     }
 }
 
@@ -86,17 +114,24 @@ assignToName = "";
 
 if(personField != null)
 {
-    val = personField.get("value");
-    if(val != null)
+    try
     {
-        personId = val.toString();
+        val = personField.get("value");
+        if(val != null)
+        {
+            personId = val.toString();
+        }
+        
+        // Extract label for person name (Cliq picker format)
+        lbl = personField.get("label");
+        if(lbl != null)
+        {
+            assignToName = lbl.toString();
+        }
     }
-    
-    // Extract label for person name (Cliq picker format)
-    lbl = personField.get("label");
-    if(lbl != null)
+    catch(e)
     {
-        assignToName = lbl.toString();
+        personId = personField.toString();
     }
 }
 
