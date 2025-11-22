@@ -1,270 +1,385 @@
-if(id == "Update Task - Get Tasks")
+response = Map();
+response.put("type","form");
+response.put("title","Update Task ✏️");
+response.put("name","updatetask");
+response.put("button_label","Update");
+
+// Initialize variables from form submission with safe defaults
+workspaceIdValue = "";
+listIdValue = "";
+
+// Get form values if they exist
+formValues = form.get("values");
+info "formValues = " + formValues;
+
+if(formValues != null)
 {
-	response = Map();
-	response.put("type","form");
-	response.put("title","Update Task ✏️");
-	response.put("name","updatetask");
-	response.put("button_label","Update");
+	// Extract workspaceId
+	wsIdFromForm = formValues.get("workspaceId");
+	info "wsIdFromForm raw = " + wsIdFromForm;
 	
-	workspaceId = workspaceId + "";
-	listId = listId + "";
-	
-	memberOptions = List();
-	taskOptions = List();
-	memberMap = Map();
-	
-	// ========================================
-	// FETCH ORGANIZATION ID (for members)
-	// ========================================
-	orgId = "";
-	try
+	if(wsIdFromForm != null)
 	{
-		meResponse = invokeurl
+		wsIdStr = wsIdFromForm + "";
+		info "wsIdStr = " + wsIdStr;
+		
+		// Try to get value field directly first (if it's a Map)
+		try
+		{
+			workspaceIdValue = wsIdFromForm.get("value") + "";
+			info "Got workspaceId from Map.value: " + workspaceIdValue;
+		}
+		catch(e1)
+		{
+			info "Not a Map, trying string extraction";
+			// Check if it's a JSON string with value key
+			if(wsIdStr.contains("\"value\""))
+			{
+				// Extract the value from JSON string
+				startIdx = wsIdStr.indexOf("\"value\"");
+				if(startIdx >= 0)
+				{
+					afterValue = wsIdStr.substring(startIdx + 7);
+					numStart = afterValue.indexOf(":") + 1;
+					numEnd = afterValue.indexOf("}", numStart);
+					if(numEnd > numStart)
+					{
+						workspaceIdValue = afterValue.substring(numStart, numEnd).trim();
+						// Remove quotes if present
+						if(workspaceIdValue.startsWith("\"") && workspaceIdValue.endsWith("\""))
+						{
+							workspaceIdValue = workspaceIdValue.substring(1, workspaceIdValue.length() - 1);
+						}
+						info "Extracted workspaceId from JSON: " + workspaceIdValue;
+					}
+				}
+			}
+			else
+			{
+				workspaceIdValue = wsIdStr;
+				info "Using workspaceId directly: " + workspaceIdValue;
+			}
+		}
+	}
+	
+	// Extract listId
+	listIdFromForm = formValues.get("listId");
+	info "listIdFromForm raw = " + listIdFromForm;
+	
+	if(listIdFromForm != null)
+	{
+		listIdStr = listIdFromForm + "";
+		info "listIdStr = " + listIdStr;
+		
+		// Try to get value field directly first (if it's a Map)
+		try
+		{
+			listIdValue = listIdFromForm.get("value") + "";
+			info "Got listId from Map.value: " + listIdValue;
+		}
+		catch(e2)
+		{
+			info "Not a Map, trying string extraction";
+			// Check if it's a JSON string with value key
+			if(listIdStr.contains("\"value\""))
+			{
+				// Extract the value from JSON string
+				startIdx = listIdStr.indexOf("\"value\"");
+				if(startIdx >= 0)
+				{
+					afterValue = listIdStr.substring(startIdx + 7);
+					numStart = afterValue.indexOf(":") + 1;
+					numEnd = afterValue.indexOf("}", numStart);
+					if(numEnd > numStart)
+					{
+						listIdValue = afterValue.substring(numStart, numEnd).trim();
+						// Remove quotes if present
+						if(listIdValue.startsWith("\"") && listIdValue.endsWith("\""))
+						{
+							listIdValue = listIdValue.substring(1, listIdValue.length() - 1);
+						}
+						info "Extracted listId from JSON: " + listIdValue;
+					}
+				}
+			}
+			else
+			{
+				listIdValue = listIdStr;
+				info "Using listId directly: " + listIdValue;
+			}
+		}
+	}
+}
+
+info "Final: workspaceIdValue = " + workspaceIdValue + ", listIdValue = " + listIdValue;
+
+memberOptions = List();
+taskOptions = List();
+memberMap = Map();
+
+// ========================================
+// FETCH ORGANIZATION ID (for members)
+// ========================================
+orgId = "";
+try
+{
+	meResponse = invokeurl
+	[
+		url : "https://base.zenkit.com/api/v1/users/me"
+		type : GET
+		connection : "zenkitconnect"
+	];
+	if(meResponse.get("organizationId") != null)
+	{
+		orgId = meResponse.get("organizationId") + "";
+	}
+}
+catch(e)
+{
+	// Silent - org fetch failed
+}
+
+// ========================================
+// FETCH TEAM MEMBERS (with error handling)
+// ========================================
+if(orgId != "" && orgId != "null")
+{
+	try 
+	{
+		membersResponse = invokeurl
 		[
-			url : "https://base.zenkit.com/api/v1/users/me"
+			url : "https://base.zenkit.com/api/v1/organizations/" + orgId + "/users"
 			type : GET
 			connection : "zenkitconnect"
 		];
-		if(meResponse.get("organizationId") != null)
+		membersList = List();
+		if(membersResponse.get("users") != null)
 		{
-			orgId = meResponse.get("organizationId") + "";
+			membersList = membersResponse.get("users");
+		}
+		for each  member in membersList
+		{
+			try 
+			{
+				mOpt = Map();
+				fullName = member.get("displayname");
+				if(fullName == null || fullName == "")
+				{
+					fullName = member.get("fullname");
+				}
+				memberId = member.get("id");
+				if(memberId != null && fullName != null && fullName != "")
+				{
+					mOpt.put("label",fullName);
+					mOpt.put("value",memberId + "");
+					memberOptions.add(mOpt);
+					memberMap.put(memberId + "",fullName);
+				}
+			}
+			catch (e)
+			{
+				// Silent error handling
+			}
 		}
 	}
-	catch(e)
+	catch (e)
 	{
-		// Silent - org fetch failed
+		// Silent error handling
 	}
-	
-	// ========================================
-	// FETCH TEAM MEMBERS (with error handling)
-	// ========================================
-	if(orgId != "" && orgId != "null")
+}
+if(memberOptions.size() == 0)
+{
+	noMember = Map();
+	noMember.put("label","No members found");
+	noMember.put("value","");
+	memberOptions.add(noMember);
+}
+
+// ========================================
+// FETCH TASKS FROM SELECTED LIST
+// ========================================
+info "Attempting to fetch tasks for listId: " + listIdValue;
+
+if(listIdValue != null && listIdValue != "")
+{
+	try
 	{
-		try 
+		// Try the correct endpoint - /lists/{listId}/entries (not /entries/search)
+		entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries";
+		info "API URL: " + entriesSearchUrl;
+		
+		entriesResponse = invokeurl
+		[
+			url : entriesSearchUrl
+			type : GET
+			connection : "zenkitconnect"
+		];
+		
+		info "API Response: " + entriesResponse;
+		
+		if(entriesResponse != null)
 		{
-			membersResponse = invokeurl
-			[
-				url : "https://base.zenkit.com/api/v1/organizations/" + orgId + "/users"
-				type : GET
-				connection : "zenkitconnect"
-			];
-			membersList = List();
-			if(membersResponse.get("users") != null)
+			entriesList = List();
+			
+			// Extract items from response
+			if(entriesResponse.containsKey("items"))
 			{
-				membersList = membersResponse.get("users");
+				entriesList = entriesResponse.get("items");
+				info "Found items array with " + entriesList.size() + " items";
 			}
-			for each  member in membersList
+			else if(entriesResponse.containsKey("results"))
+			{
+				entriesList = entriesResponse.get("results");
+				info "Found results array with " + entriesList.size() + " items";
+			}
+			else
+			{
+				try
+				{
+					itemCount = 0;
+					for each  item in entriesResponse
+					{
+						entriesList.add(item);
+						itemCount = itemCount + 1;
+					}
+					info "Direct iteration found " + itemCount + " items";
+				}
+				catch (e)
+				{
+					info "Response is not iterable";
+				}
+			}
+			
+			info "Processing " + entriesList.size() + " entries";
+			
+			for each  entry in entriesList
 			{
 				try 
 				{
-					mOpt = Map();
-					fullName = member.get("displayname");
-					if(fullName == null || fullName == "")
+					entryName = entry.get("name");
+					entryId = entry.get("id");
+					info "Entry: id=" + entryId + ", name=" + entryName;
+					
+					if(entryName != null && entryName != "" && entryId != null)
 					{
-						fullName = member.get("fullname");
-					}
-					memberId = member.get("id");
-					if(memberId != null && fullName != null && fullName != "")
-					{
-						mOpt.put("label",fullName);
-						mOpt.put("value",memberId + "");
-						memberOptions.add(mOpt);
-						memberMap.put(memberId + "",fullName);
+						tOpt = Map();
+						tOpt.put("label", entryName);
+						tOpt.put("value", entryId + "");
+						taskOptions.add(tOpt);
+						info "Added task option: " + entryName;
 					}
 				}
 				catch (e)
 				{
-					// Silent error handling
+					info "Error parsing entry: " + e;
 				}
 			}
 		}
-		catch (e)
-		{
-			// Silent error handling
-		}
 	}
-	if(memberOptions.size() == 0)
+	catch (e)
 	{
-		noMember = Map();
-		noMember.put("label","No members found");
-		noMember.put("value","");
-		memberOptions.add(noMember);
+		info "API Error: " + e;
 	}
-	
-	// ========================================
-	// FETCH TASKS FROM SELECTED LIST
-	// ========================================
-	if(listId != null && listId != "")
-	{
-		try
-		{
-			entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listId + "/entries/search";
-			searchBody = Map();
-			
-			entriesResponse = invokeurl
-			[
-				url : entriesSearchUrl
-				type : POST
-				parameters : toString(searchBody)
-				connection : "zenkitconnect"
-			];
-			
-			if(entriesResponse != null)
-			{
-				entriesList = List();
-				
-				// Extract items from response
-				if(entriesResponse.containsKey("items"))
-				{
-					entriesList = entriesResponse.get("items");
-				}
-				else if(entriesResponse.containsKey("results"))
-				{
-					entriesList = entriesResponse.get("results");
-				}
-				else
-				{
-					try
-					{
-						for each  item in entriesResponse
-						{
-							entriesList.add(item);
-						}
-					}
-					catch (e)
-					{
-						// Not iterable
-					}
-				}
-				
-				for each  entry in entriesList
-				{
-					try 
-					{
-						entryName = entry.get("name");
-						entryId = entry.get("id");
-						if(entryName != null && entryName != "" && entryId != null)
-						{
-							tOpt = Map();
-							tOpt.put("label", entryName);
-							tOpt.put("value", entryId + "");
-							taskOptions.add(tOpt);
-						}
-					}
-					catch (e)
-					{
-						// Error parsing entry
-					}
-				}
-			}
-		}
-		catch (e)
-		{
-			// API Error
-		}
-	}
-	
-	if(taskOptions.size() == 0)
-	{
-		emptyTask = Map();
-		emptyTask.put("label","No tasks found in this list");
-		emptyTask.put("value","");
-		taskOptions.add(emptyTask);
-	}
-	
-	// ========================================
-	// BUILD INPUTS - STEP 2: SELECT TASK & UPDATE FIELDS
-	// ========================================
-	inputsList = List();
-	
-	// 1. HIDDEN FIELD - WORKSPACE ID
-	inp0 = Map();
-	inp0.put("label","Workspace ID");
-	inp0.put("name","workspaceId");
-	inp0.put("type","text");
-	inp0.put("mandatory",false);
-	inp0.put("value",workspaceId);
-	inp0.put("hidden",true);
-	inputsList.add(inp0);
-	
-	// 2. HIDDEN FIELD - LIST ID
-	inp1 = Map();
-	inp1.put("label","List ID");
-	inp1.put("name","listId");
-	inp1.put("type","text");
-	inp1.put("mandatory",false);
-	inp1.put("value",listId);
-	inp1.put("hidden",true);
-	inputsList.add(inp1);
-	
-	// 3. TASK DROPDOWN
-	inp2 = Map();
-	inp2.put("label","Select Task");
-	inp2.put("name","taskId");
-	inp2.put("type","select");
-	inp2.put("mandatory",true);
-	inp2.put("placeholder","Choose task to update");
-	inp2.put("options",taskOptions);
-	inputsList.add(inp2);
-	
-	// 4. TASK NAME (OPTIONAL)
-	inp3 = Map();
-	inp3.put("label","New Task Name");
-	inp3.put("name","taskname");
-	inp3.put("placeholder","Leave blank to keep current name");
-	inp3.put("type","text");
-	inp3.put("mandatory",false);
-	inputsList.add(inp3);
-	
-	// 5. DUE DATE (OPTIONAL)
-	inp4 = Map();
-	inp4.put("label","New Due Date");
-	inp4.put("name","dueon");
-	inp4.put("type","date");
-	inp4.put("placeholder","Select new due date");
-	inp4.put("mandatory",false);
-	inputsList.add(inp4);
-	
-	// 6. ASSIGN TO (OPTIONAL)
-	inp5 = Map();
-	inp5.put("label","Assign To");
-	inp5.put("name","assignto");
-	inp5.put("type","select");
-	inp5.put("mandatory",false);
-	inp5.put("placeholder","Select member");
-	inp5.put("options",memberOptions);
-	inputsList.add(inp5);
-	
-	// 7. CATEGORY (OPTIONAL)
-	inp6 = Map();
-	inp6.put("label","Category");
-	inp6.put("name","category");
-	inp6.put("type","select");
-	inp6.put("placeholder","Select category");
-	inp6.put("mandatory",false);
-	categoryOptions = List();
-	c1 = Map();
-	c1.put("label","To-Do");
-	c1.put("value","15565684");
-	categoryOptions.add(c1);
-	c2 = Map();
-	c2.put("label","In Progress");
-	c2.put("value","15565685");
-	categoryOptions.add(c2);
-	c3 = Map();
-	c3.put("label","Done");
-	c3.put("value","15565686");
-	categoryOptions.add(c3);
-	inp6.put("options",categoryOptions);
-	inputsList.add(inp6);
-	
-	response.put("inputs",inputsList);
-	
-	// SUBMIT ACTION
-	action = Map();
-	action.put("type","invoke.function");
-	action.put("name","updatetaskfunction");
-	response.put("action",action);
-	
-	return response;
 }
+else
+{
+	info "listIdValue is empty or null: " + listIdValue;
+}
+
+if(taskOptions.size() == 0)
+{
+	emptyTask = Map();
+	emptyTask.put("label","No tasks found in this list");
+	emptyTask.put("value","");
+	taskOptions.add(emptyTask);
+}
+
+// ========================================
+// BUILD INPUTS - STEP 2: SELECT TASK & UPDATE FIELDS
+// ========================================
+inputsList = List();
+
+// 1. HIDDEN FIELD - WORKSPACE ID
+inp0 = Map();
+inp0.put("name","workspaceId");
+inp0.put("type","hidden");
+inp0.put("value",workspaceIdValue);
+inputsList.add(inp0);
+
+// 2. HIDDEN FIELD - LIST ID
+inp1 = Map();
+inp1.put("name","listId");
+inp1.put("type","hidden");
+inp1.put("value",listIdValue);
+inputsList.add(inp1);
+
+// 3. TASK DROPDOWN
+inp2 = Map();
+inp2.put("label","Select Task");
+inp2.put("name","taskId");
+inp2.put("type","select");
+inp2.put("mandatory",true);
+inp2.put("placeholder","Choose task to update");
+inp2.put("options",taskOptions);
+inputsList.add(inp2);
+
+// 4. TASK NAME (OPTIONAL)
+inp3 = Map();
+inp3.put("label","New Task Name");
+inp3.put("name","taskname");
+inp3.put("placeholder","Leave blank to keep current name");
+inp3.put("type","text");
+inp3.put("mandatory",false);
+inputsList.add(inp3);
+
+// 5. DUE DATE (OPTIONAL)
+inp4 = Map();
+inp4.put("label","New Due Date");
+inp4.put("name","dueon");
+inp4.put("type","date");
+inp4.put("placeholder","Select new due date");
+inp4.put("mandatory",false);
+inputsList.add(inp4);
+
+// 6. ASSIGN TO (OPTIONAL)
+inp5 = Map();
+inp5.put("label","Assign To");
+inp5.put("name","assignto");
+inp5.put("type","select");
+inp5.put("mandatory",false);
+inp5.put("placeholder","Select member");
+inp5.put("options",memberOptions);
+inputsList.add(inp5);
+
+// 7. CATEGORY (OPTIONAL)
+inp6 = Map();
+inp6.put("label","Category");
+inp6.put("name","category");
+inp6.put("type","select");
+inp6.put("placeholder","Select category");
+inp6.put("mandatory",false);
+categoryOptions = List();
+c1 = Map();
+c1.put("label","To-Do");
+c1.put("value","15565684");
+categoryOptions.add(c1);
+c2 = Map();
+c2.put("label","In Progress");
+c2.put("value","15565685");
+categoryOptions.add(c2);
+c3 = Map();
+c3.put("label","Done");
+c3.put("value","15565686");
+categoryOptions.add(c3);
+inp6.put("options",categoryOptions);
+inputsList.add(inp6);
+
+response.put("inputs",inputsList);
+
+// SUBMIT ACTION
+action = Map();
+action.put("type","invoke.function");
+action.put("name","updatetaskfunction");
+response.put("action",action);
+
+return response;
