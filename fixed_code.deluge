@@ -235,6 +235,14 @@ if(elements == null)
     return response;
 }
 
+// Get workspace ID from schema (should be available in the first element)
+workspaceId = "";
+if(elements.size() > 0)
+{
+    firstEl = elements.get(0);
+    workspaceId = firstEl.get("workspace_id");
+}
+
 taskUUID = "";
 catUUID = "";
 dateUUID = "";
@@ -479,7 +487,50 @@ if(uuid == null)
     return response;
 }
 
-taskUrl = "https://base.zenkit.com/item/" + uuid;
+// Get the correct task URL from Zenkit response
+// Try to get app_url first (direct link to task)
+taskUrl = res.get("app_url");
+
+// If app_url is empty, construct from response data using slug
+if(taskUrl == null || taskUrl == "")
+{
+    try
+    {
+        // Get slug from response (used for user-friendly URLs)
+        slug = res.get("slug");
+        
+        // If slug exists, use it to build the URL
+        if(slug != null && slug != "")
+        {
+            taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + slug;
+        }
+        else
+        {
+            // If no slug, try to get id field
+            entryId = res.get("id");
+            if(entryId == null)
+            {
+                entryId = uuid;
+            }
+            
+            // Construct URL using workspace, list, and entry IDs
+            // Format: https://base.zenkit.com/i/{workspace}/{list}/{entry}
+            if(workspaceId != null && workspaceId != "")
+            {
+                taskUrl = "https://base.zenkit.com/i/" + workspaceId + "/" + listId + "/" + entryId;
+            }
+            else
+            {
+                taskUrl = "https://base.zenkit.com/item/" + uuid;
+            }
+        }
+    }
+    catch(e)
+    {
+        // If construction fails, use fallback
+        taskUrl = "https://base.zenkit.com/item/" + uuid;
+    }
+}
 
 successMsg = "✅ Task created!";
 
