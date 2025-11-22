@@ -156,10 +156,10 @@ try
 	{
 		keyStr = key + "";
 		
-		// Look for fields by their suffix - be specific to avoid catching similar field names
-		if(keyStr == "a9a33906-97d5-4b51-90b6-e7789fcbf979_text")
+		// Look for fields by their suffix - match first _text field that isn't _searchText or _textType
+		if(keyStr.contains("_text") && !keyStr.contains("_searchText") && !keyStr.contains("_textType") && !fieldUuidMap.containsKey("name_uuid"))
 		{
-			uuid = "a9a33906-97d5-4b51-90b6-e7789fcbf979";
+			uuid = keyStr.replaceAll("_text","");
 			fieldUuidMap.put("name_uuid",uuid);
 			info "Found TEXT field UUID: " + uuid;
 		}
@@ -229,6 +229,7 @@ if(taskName != null && taskName != "")
 			info "Added date fields for: " + dateUuid;
 		}
 	}// Add Assign To field (if provided)
+assignToLabel = assignTo;
 if(assignTo != null && assignTo != "")
 {
 	personsUuid = fieldUuidMap.get("persons_uuid");
@@ -239,6 +240,7 @@ if(assignTo != null && assignTo != "")
 		assignValue = assignTo;
 		try
 		{
+			assignToLabel = assignTo.get("label");
 			assignValue = assignTo.get("value");
 		}
 		catch(e)
@@ -252,6 +254,7 @@ if(assignTo != null && assignTo != "")
 }
 
 // Add Category field (if provided)
+categoryLabel = category;
 if(category != null && category != "")
 {
 	categoriesUuid = fieldUuidMap.get("categories_uuid");
@@ -262,6 +265,7 @@ if(category != null && category != "")
 		catValue = category;
 		try
 		{
+			categoryLabel = category.get("label");
 			catValue = category.get("value");
 		}
 		catch(e)
@@ -304,8 +308,98 @@ catch(e)
 
 
 // ========================================
-// RETURN SUCCESS MESSAGE
+// RETURN SUCCESS MESSAGE WITH REDIRECT BUTTON
 // ========================================
+targetEntryShortId = targetEntry.get("shortId");
+workspaceId = formValues.get("workspaceId");
+
+// Use the NEW updated task name (not the old displayString from targetEntry)
+entrySlug = taskName;
+
+// Fetch workspace short ID from Zenkit API
+workspaceShortId = "";
+try
+{
+	workspaceUrl = "https://base.zenkit.com/api/v1/workspaces/" + workspaceId;
+	info "Fetching workspace info from: " + workspaceUrl;
+	
+	workspaceResponse = invokeurl
+	[
+		url : workspaceUrl
+		type : GET
+		connection : "zenkitconnect"
+	];
+	
+	info "Workspace response: " + workspaceResponse;
+	
+	// Try different field names for short ID
+	workspaceShortId = workspaceResponse.get("shortId");
+	if(workspaceShortId == null || workspaceShortId == "")
+	{
+		workspaceShortId = workspaceResponse.get("short_id");
+	}
+	if(workspaceShortId == null || workspaceShortId == "")
+	{
+		workspaceShortId = workspaceResponse.get("id");
+	}
+	if(workspaceShortId == null || workspaceShortId == "")
+	{
+		workspaceShortId = workspaceResponse.get("uuid");
+	}
+	
+	info "Workspace short ID found: " + workspaceShortId;
+}
+catch(e)
+{
+	info "❌ Could not fetch workspace short ID: " + e;
+	info "Error details: " + e;
+}
+
+// Get list short ID (this is what's actually used in the Zenkit URL)
+listShortId = "";
+try
+{
+	listUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue;
+	listResponse = invokeurl
+	[
+		url : listUrl
+		type : GET
+		connection : "zenkitconnect"
+	];
+	
+	info "List response: " + listResponse;
+	listShortId = listResponse.get("shortId");
+	if(listShortId == null || listShortId == "")
+	{
+		listShortId = listResponse.get("short_id");
+	}
+	info "List short ID found: " + listShortId;
+	
+	// Use list short ID in the URL (this is the correct one based on actual Zenkit URLs)
+	if(listShortId != null && listShortId != "")
+	{
+		workspaceShortId = listShortId;
+		info "Using list short ID for URL: " + workspaceShortId;
+	}
+}
+catch(e)
+{
+	info "Could not fetch list short ID: " + e;
+}
+
+taskUrl = "";
+if(workspaceShortId != null && targetEntryShortId != null && entrySlug != null)
+{
+	// Convert slug to proper format (lowercase, replace spaces with hyphens)
+	entrySlug = entrySlug + "";
+	entrySlug = entrySlug.toLowerCase();
+	entrySlug = entrySlug.replaceAll(" ", "-");
+	
+	// Format: https://base.zenkit.com/i/{workspace_short_id}/{entry_short_id}/{entry_slug}
+	taskUrl = "https://base.zenkit.com/i/" + workspaceShortId + "/" + targetEntryShortId + "/" + entrySlug;
+	info "Zenkit link: " + taskUrl;
+}
+
 response.put("type","message");
 successText = "✅ All fields updated successfully!\n\n";
 if(taskName != null && taskName != "")
@@ -318,14 +412,38 @@ if(dueDate != null && dueDate != "")
 }
 if(assignTo != null && assignTo != "")
 {
-	successText = successText + "👤 Assigned To: " + assignTo + "\n";
+	successText = successText + "👤 Assigned To: " + assignToLabel + "\n";
 }
 if(category != null && category != "")
 {
-	successText = successText + "🏷️ Category: " + category + "\n";
+	successText = successText + "🏷️ Category: " + categoryLabel + "\n";
 }
 
-successText = successText + "\n📍 Open in Zenkit";
 response.put("text",successText);
+
+// Add button to response
+if(taskUrl != "" && taskUrl != null)
+{
+	try
+	{
+		btn = Map();
+		btn.put("label", "🔗 Open in Zenkit");
+		btn.put("type", "+");
+		btn.put("action", {"type":"open.url","data":{"web":taskUrl}});
+		
+		btns = List();
+		btns.add(btn);
+		response.put("buttons", btns);
+		
+		info "Button added with URL: " + taskUrl;
+	}
+	catch(e)
+	{
+		info "Error creating button: " + e;
+		// Fallback: add link to text
+		successText = successText + "\n\n🔗 [Open in Zenkit](" + taskUrl + ")";
+		response.put("text", successText);
+	}
+}
 
 return response;
