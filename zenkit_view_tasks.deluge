@@ -184,6 +184,8 @@ for each  entry in tasksList
 {
 	taskIndex = taskIndex + 1;
 	
+	info "Processing task " + taskIndex + ": " + entry;
+	
 	try 
 	{
 		// Extract task data
@@ -197,92 +199,123 @@ for each  entry in tasksList
 			taskName = "Task " + taskIndex;
 		}
 		
-		info "=== DEBUG TASK " + taskIndex + ": " + taskName + " ===";
-		
-		// Get fields from entry
-		fields = entry.get("fields");
-		fieldsExist = fields != null;
-		info "Fields exist: " + fieldsExist;
-		
-		// DEBUG: Print all entry data (first 500 chars)
-		entryStr = entry + "";
-		if(entryStr.length() > 500)
-		{
-			info "Entry data (truncated): " + entryStr.substring(0, 500);
-		}
-		else
-		{
-			info "Entry data: " + entryStr;
-		}
-		
 		taskStatus = "Not Set";
 		assignedTo = "-";
 		dueDate = "-";
 		
-		if(fields != null)
+		// Find fields dynamically by looking for known suffixes in the entry
+		// Each field key format: {uuid}_{fieldType}
+		
+		// Find status field - look for any key ending with _categories
+		statusFieldKey = "";
+		try 
 		{
-			// Try to get status
-			try 
+			entryStr = entry + "";
+			// Find the pattern before _categories
+			catIdx = entryStr.indexOf("_categories");
+			if(catIdx > 0)
 			{
-				statusObj = fields.get("15565684");
-				if(statusObj != null)
+				// Work backwards to find the UUID start (after comma or brace)
+				searchStr = entryStr.substring(0, catIdx);
+				lastQuoteIdx = searchStr.lastIndexOf("\"");
+				if(lastQuoteIdx > 0)
 				{
-					statusValue = statusObj.get("value");
-					if(statusValue != null)
+					statusFieldKey = searchStr.substring(lastQuoteIdx + 1);
+					statusFieldKey = statusFieldKey + "_categories";
+					statusField = entry.get(statusFieldKey);
+					if(statusField != null)
 					{
-						taskStatus = statusValue;
+						statusStr = statusField + "";
+						if(statusStr.length() > 0 && statusStr != "[]")
+						{
+							taskStatus = statusStr;
+						}
 					}
 				}
-			}
-			catch (e)
-			{
-				// Status not found
-			}
-			
-			// Try to get assigned to (member)
-			try 
-			{
-				assigneeObj = fields.get("assignee");
-				if(assigneeObj == null)
-				{
-					assigneeObj = fields.get("assignedto");
-				}
-				if(assigneeObj != null)
-				{
-					assigneeValue = assigneeObj.get("value");
-					if(assigneeValue != null)
-					{
-						assignedTo = assigneeValue + "";
-					}
-				}
-			}
-			catch (e)
-			{
-				// Assignee not found
-			}
-			
-			// Try to get due date
-			try 
-			{
-				dueDateObj = fields.get("dueon");
-				if(dueDateObj == null)
-				{
-					dueDateObj = fields.get("duedate");
-				}
-				if(dueDateObj != null)
-				{
-					dueDateValue = dueDateObj.get("value");
-					if(dueDateValue != null)
-					{
-						dueDate = dueDateValue + "";
-					}
-				}
-			}
-			catch (e)
-			{
-				// Due date not found
 			}
 		}
+		catch (e)
+		{
+			info "Error extracting status: " + e;
+		}
+		
+		// Find assignee field - look for any key ending with _persons_sort
+		assigneeFieldKey = "";
+		try 
+		{
+			entryStr = entry + "";
+			personsSortIdx = entryStr.indexOf("_persons_sort");
+			if(personsSortIdx > 0)
+			{
+				searchStr = entryStr.substring(0, personsSortIdx);
+				lastQuoteIdx = searchStr.lastIndexOf("\"");
+				if(lastQuoteIdx > 0)
+				{
+					assigneeFieldKey = searchStr.substring(lastQuoteIdx + 1);
+					assigneeFieldKey = assigneeFieldKey + "_persons_sort";
+					assigneeField = entry.get(assigneeFieldKey);
+					if(assigneeField != null)
+					{
+						try 
+						{
+							personsList = assigneeField;
+							personListSize = personsList.size();
+							if(personListSize > 0)
+							{
+								firstPerson = personsList.get(0);
+								personName = firstPerson.get("displayname");
+								if(personName != null)
+								{
+									assignedTo = personName + "";
+								}
+							}
+						}
+						catch (listError)
+						{
+							assignedTo = assigneeField + "";
+						}
+					}
+				}
+			}
+		}
+		catch (e)
+		{
+			info "Error extracting assignee: " + e;
+		}
+		
+		// Find due date field - look for any key ending with _date (but not _endDate)
+		dueDateFieldKey = "";
+		try 
+		{
+			entryStr = entry + "";
+			dateIdx = entryStr.indexOf("_date\"");
+			if(dateIdx > 0)
+			{
+				searchStr = entryStr.substring(0, dateIdx);
+				lastQuoteIdx = searchStr.lastIndexOf("\"");
+				if(lastQuoteIdx > 0)
+				{
+					potentialKey = searchStr.substring(lastQuoteIdx + 1);
+					// Make sure it's not _endDate
+					isEndDate = potentialKey.endsWith("_endDate");
+					if(isEndDate == false)
+					{
+						dueDateFieldKey = potentialKey + "_date";
+						dueDateField = entry.get(dueDateFieldKey);
+						if(dueDateField != null)
+						{
+							dueDate = dueDateField + "";
+						}
+					}
+				}
+			}
+		}
+		catch (e)
+		{
+			info "Error extracting due date: " + e;
+		}
+		
+		info "Found fields - Status: " + statusFieldKey + ", Assignee: " + assigneeFieldKey + ", DueDate: " + dueDateFieldKey;
 		
 		// Add row
 		row = Map();
@@ -291,8 +324,6 @@ for each  entry in tasksList
 		row.put("Assigned To",assignedTo);
 		row.put("Due Date",dueDate);
 		rowsList.add(row);
-		
-		info "Added task row: " + taskName;
 	}
 	catch (rowError)
 	{
