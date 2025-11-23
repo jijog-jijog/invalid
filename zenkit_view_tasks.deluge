@@ -206,29 +206,47 @@ for each  entry in tasksList
 		// Find fields dynamically by looking for known suffixes in the entry
 		// Each field key format: {uuid}_{fieldType}
 		
-		// Find status field - look for any key ending with _categories
+		// Find status field - look for any key ending with _categories_sort (has display values)
 		statusFieldKey = "";
 		try 
 		{
 			entryStr = entry + "";
-			// Find the pattern before _categories
-			catIdx = entryStr.indexOf("_categories");
-			if(catIdx > 0)
+			// First try _categories_sort (display values)
+			catSortIdx = entryStr.indexOf("_categories_sort");
+			if(catSortIdx > 0)
 			{
-				// Work backwards to find the UUID start (after comma or brace)
-				searchStr = entryStr.substring(0, catIdx);
+				searchStr = entryStr.substring(0, catSortIdx);
 				lastQuoteIdx = searchStr.lastIndexOf("\"");
 				if(lastQuoteIdx > 0)
 				{
 					statusFieldKey = searchStr.substring(lastQuoteIdx + 1);
-					statusFieldKey = statusFieldKey + "_categories";
+					statusFieldKey = statusFieldKey + "_categories_sort";
 					statusField = entry.get(statusFieldKey);
 					if(statusField != null)
 					{
-						statusStr = statusField + "";
-						if(statusStr.length() > 0 && statusStr != "[]")
+						// statusField is an array of category objects
+						try 
 						{
-							taskStatus = statusStr;
+							statusList = statusField;
+							statusListSize = statusList.size();
+							if(statusListSize > 0)
+							{
+								firstStatus = statusList.get(0);
+								statusName = firstStatus.get("name");
+								if(statusName != null)
+								{
+									taskStatus = statusName + "";
+								}
+							}
+						}
+						catch (parseError)
+						{
+							// If it's not a list, try converting to string
+							statusStr = statusField + "";
+							if(statusStr.length() > 0 && statusStr != "[]")
+							{
+								taskStatus = statusStr;
+							}
 						}
 					}
 				}
