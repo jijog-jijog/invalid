@@ -71,6 +71,32 @@ if(isListIdEmpty)
 // ========================================
 info "Fetching tasks from list: " + listIdValue;
 
+// Fetch list details for the name
+listDetailsUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue;
+listName = "your project";
+try 
+{
+	listResponse = invokeurl
+	[
+		url :listDetailsUrl
+		type :GET
+		connection:"zenkitconnect"
+	];
+	
+	if(listResponse != null)
+	{
+		fetchedName = listResponse.get("name");
+		if(fetchedName != null)
+		{
+			listName = fetchedName + "";
+		}
+	}
+}
+catch (listError)
+{
+	info "Could not fetch list name: " + listError;
+}
+
 entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/search";
 info "API URL: " + entriesSearchUrl;
 
@@ -354,6 +380,6 @@ tableSlide.put("data",tableData);
 slidesList.add(tableSlide);
 
 response.put("slides",slidesList);
-response.put("text","✅ Tasks from your project:");
+response.put("text","✅ Tasks from " + listName + ":");
 
 return response;
