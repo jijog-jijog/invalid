@@ -1,0 +1,310 @@
+// ========================================
+// ZENKIT VIEW TASKS FUNCTION
+// Display tasks from a list in table format
+// ========================================
+
+// Get form input
+listIdValue = "";
+formValues = form.get("values");
+
+if(formValues != null)
+{
+	listIdFromForm = formValues.get("listId");
+	if(listIdFromForm != null)
+	{
+		listIdStr = listIdFromForm + "";
+		try 
+		{
+			listIdValue = listIdFromForm.get("value") + "";
+		}
+		catch (e1)
+		{
+			if(listIdStr.contains("\"value\""))
+			{
+				startIdx = listIdStr.indexOf("\"value\"");
+				if(startIdx >= 0)
+				{
+					afterValue = listIdStr.substring(startIdx + 7);
+					numStart = afterValue.indexOf(":") + 1;
+					numEnd = afterValue.indexOf("}",numStart);
+					if(numEnd > numStart)
+					{
+						listIdValue = afterValue.substring(numStart,numEnd).trim();
+						if(listIdValue.startsWith("\""))
+						{
+							if(listIdValue.endsWith("\""))
+							{
+								listIdValue = listIdValue.substring(1,listIdValue.length() - 1);
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				listIdValue = listIdStr;
+			}
+		}
+	}
+}
+
+info "zenkit_view_tasks - listIdValue: " + listIdValue;
+
+// Initialize response
+response = Map();
+response.put("text","Loading tasks...");
+
+isListIdEmpty = listIdValue == null;
+if(isListIdEmpty)
+{
+	isListIdEmpty = listIdValue == "";
+}
+
+if(isListIdEmpty)
+{
+	response.put("text","❌ No list selected. Please select a project/list first.");
+	return response;
+}
+
+// ========================================
+// FETCH TASKS FROM LIST
+// ========================================
+info "Fetching tasks from list: " + listIdValue;
+
+entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/search";
+info "API URL: " + entriesSearchUrl;
+
+tasksList = List();
+
+try 
+{
+	entriesResponse = invokeurl
+	[
+		url :entriesSearchUrl
+		type :GET
+		connection:"zenkitconnect"
+	];
+	
+	info "API Response received";
+	
+	isResponseNull = entriesResponse == null;
+	if(isResponseNull == false)
+	{
+		// Try direct iteration first
+		try 
+		{
+			item = null;
+			for each  item in entriesResponse
+			{
+				tasksList.add(item);
+			}
+			info "Direct iteration found " + tasksList.size() + " tasks";
+		}
+		catch (iterError)
+		{
+			info "Direct iteration failed, trying as Map";
+			
+			// Try as Map with common keys
+			try 
+			{
+				if(entriesResponse.containsKey("entries"))
+				{
+					tasksList = entriesResponse.get("entries");
+					info "Found 'entries' key with " + tasksList.size() + " tasks";
+				}
+				else if(entriesResponse.containsKey("items"))
+				{
+					tasksList = entriesResponse.get("items");
+					info "Found 'items' key with " + tasksList.size() + " tasks";
+				}
+				else if(entriesResponse.containsKey("data"))
+				{
+					tasksList = entriesResponse.get("data");
+					info "Found 'data' key with " + tasksList.size() + " tasks";
+				}
+				else if(entriesResponse.containsKey("results"))
+				{
+					tasksList = entriesResponse.get("results");
+					info "Found 'results' key with " + tasksList.size() + " tasks";
+				}
+			}
+			catch (mapError)
+			{
+				info "Map extraction failed: " + mapError;
+			}
+		}
+	}
+}
+catch (apiError)
+{
+	info "API Error: " + apiError;
+	response.put("text","❌ Error fetching tasks: " + apiError);
+	return response;
+}
+
+// ========================================
+// BUILD RESPONSE
+// ========================================
+
+totalTasks = tasksList.size();
+info "Total tasks to display: " + totalTasks;
+
+if(totalTasks == 0)
+{
+	response.put("text","📭 No tasks found in this list");
+	return response;
+}
+
+// Build slides with table
+slidesList = List();
+
+// ========================================
+// TABLE SLIDE
+// ========================================
+tableSlide = Map();
+tableSlide.put("type","table");
+tableSlide.put("title","📋 Tasks in Project");
+
+tableData = Map();
+
+// Table headers
+headersList = List();
+headersList.add("Task Name");
+headersList.add("Status");
+headersList.add("Assigned To");
+headersList.add("Due Date");
+tableData.put("headers",headersList);
+
+// Table rows
+rowsList = List();
+
+taskIndex = 0;
+entry = null;
+for each  entry in tasksList
+{
+	taskIndex = taskIndex + 1;
+	
+	try 
+	{
+		// Extract task data
+		taskName = entry.get("displayString");
+		if(taskName == null)
+		{
+			taskName = entry.get("name");
+		}
+		if(taskName == null)
+		{
+			taskName = "Task " + taskIndex;
+		}
+		
+		info "=== DEBUG TASK " + taskIndex + ": " + taskName + " ===";
+		
+		// Get fields from entry
+		fields = entry.get("fields");
+		fieldsExist = fields != null;
+		info "Fields exist: " + fieldsExist;
+		
+		// DEBUG: Print all entry data (first 500 chars)
+		entryStr = entry + "";
+		if(entryStr.length() > 500)
+		{
+			info "Entry data (truncated): " + entryStr.substring(0, 500);
+		}
+		else
+		{
+			info "Entry data: " + entryStr;
+		}
+		
+		taskStatus = "Not Set";
+		assignedTo = "-";
+		dueDate = "-";
+		
+		if(fields != null)
+		{
+			// Try to get status
+			try 
+			{
+				statusObj = fields.get("15565684");
+				if(statusObj != null)
+				{
+					statusValue = statusObj.get("value");
+					if(statusValue != null)
+					{
+						taskStatus = statusValue;
+					}
+				}
+			}
+			catch (e)
+			{
+				// Status not found
+			}
+			
+			// Try to get assigned to (member)
+			try 
+			{
+				assigneeObj = fields.get("assignee");
+				if(assigneeObj == null)
+				{
+					assigneeObj = fields.get("assignedto");
+				}
+				if(assigneeObj != null)
+				{
+					assigneeValue = assigneeObj.get("value");
+					if(assigneeValue != null)
+					{
+						assignedTo = assigneeValue + "";
+					}
+				}
+			}
+			catch (e)
+			{
+				// Assignee not found
+			}
+			
+			// Try to get due date
+			try 
+			{
+				dueDateObj = fields.get("dueon");
+				if(dueDateObj == null)
+				{
+					dueDateObj = fields.get("duedate");
+				}
+				if(dueDateObj != null)
+				{
+					dueDateValue = dueDateObj.get("value");
+					if(dueDateValue != null)
+					{
+						dueDate = dueDateValue + "";
+					}
+				}
+			}
+			catch (e)
+			{
+				// Due date not found
+			}
+		}
+		
+		// Add row
+		row = Map();
+		row.put("Task Name",taskName);
+		row.put("Status",taskStatus);
+		row.put("Assigned To",assignedTo);
+		row.put("Due Date",dueDate);
+		rowsList.add(row);
+		
+		info "Added task row: " + taskName;
+	}
+	catch (rowError)
+	{
+		info "Error processing task: " + rowError;
+	}
+}
+
+tableData.put("rows",rowsList);
+tableSlide.put("data",tableData);
+slidesList.add(tableSlide);
+
+response.put("slides",slidesList);
+response.put("text","✅ Tasks from your project:");
+
+return response;
