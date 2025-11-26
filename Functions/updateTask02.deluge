@@ -1,3 +1,4 @@
+
 // ========================================
 // UPDATE TASK FUNCTION
 // ========================================
@@ -6,18 +7,14 @@
 // Payload format: {UUID_fieldtype: value, ...}
 // Input: Form values with task fields to update
 // Output: Success/error message
-
 response = Map();
 formValues = form.get("values");
-
 if(formValues == null)
 {
 	response.put("text","❌ ERROR: No form values received");
 	return response;
 }
-
 info "formValues = " + formValues;
-
 // Extract values from form
 listIdValue = formValues.get("listId");
 taskIdValue = formValues.get("taskId");
@@ -25,9 +22,8 @@ taskName = formValues.get("taskname");
 dueDate = formValues.get("dueon");
 assignTo = formValues.get("assignto");
 category = formValues.get("category");
-
 // Extract value from taskId if it's a Map (from form dropdown)
-try
+try 
 {
 	if(taskIdValue != null)
 	{
@@ -39,66 +35,56 @@ try
 		}
 	}
 }
-catch(e)
+catch (e)
 {
 	info "taskId is not a Map, using as-is: " + taskIdValue;
 }
-
 info "Extracted: listId=" + listIdValue + ", taskId=" + taskIdValue;
 info "Updates: name=" + taskName + ", date=" + dueDate + ", assignTo=" + assignTo + ", category=" + category;
-
 // Validate required fields
 if(taskIdValue == null || taskIdValue == "")
 {
 	response.put("text","❌ ERROR: Task ID is required");
 	return response;
 }
-
 if(listIdValue == null || listIdValue == "")
 {
 	response.put("text","❌ ERROR: List ID is required");
 	return response;
 }
-
 // ========================================
 // FETCH ENTRY TO EXTRACT DYNAMIC FIELD UUIDs
 // ========================================
 fieldUuidMap = Map();
-try
+try 
 {
 	entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/search";
 	info "Fetching entries from: " + entriesSearchUrl;
-	
 	entriesResponse = invokeurl
 	[
-		url : entriesSearchUrl
-		type : GET
-		connection : "zenkitconnect"
+		url :entriesSearchUrl
+		type :GET
+		connection:"zenkitconnect"
 	];
-	
 	info "Entries response received";
 	info "Full response: " + entriesResponse;
-	
 	// Find our specific entry
 	targetEntry = null;
 	entriesCount = 0;
-	
 	if(entriesResponse != null)
 	{
 		info "Response is not null";
-		
-		try
+		try 
 		{
 			info "Attempting to iterate through entries...";
-			
-			for each entry in entriesResponse
+			for each  entry in entriesResponse
 			{
 				entriesCount = entriesCount + 1;
 				entryId = entry.get("id");
 				displayString = entry.get("displayString");
-				
-			info "Entry #" + entriesCount + ": id=" + entryId + ", displayString=" + displayString + ", taskIdValue=" + taskIdValue;
-			info "Comparing: '" + entryId + "' == '" + taskIdValue + "'";				// Try different comparison methods
+				info "Entry #" + entriesCount + ": id=" + entryId + ", displayString=" + displayString + ", taskIdValue=" + taskIdValue;
+				info "Comparing: '" + entryId + "' == '" + taskIdValue + "'";
+				// Try different comparison methods
 				if(entryId + "" == taskIdValue + "")
 				{
 					targetEntry = entry;
@@ -116,10 +102,9 @@ try
 					info "No match - continuing search";
 				}
 			}
-			
 			info "Total entries iterated: " + entriesCount;
 		}
-		catch(e)
+		catch (e)
 		{
 			info "❌ ERROR iterating entries: " + e;
 		}
@@ -128,34 +113,27 @@ try
 	{
 		info "❌ Response is null!";
 	}
-	
 	if(targetEntry == null)
 	{
 		info "❌ targetEntry is still null after iteration";
 		info "Entries found: " + entriesCount;
 		info "Looking for taskIdValue: " + taskIdValue;
-		
 		responseReceived = "No";
 		if(entriesResponse != null)
 		{
 			responseReceived = "Yes";
 		}
-		
 		response.put("text","❌ ERROR: Could not find task entry in list\n\nDebug Info:\n- Entries searched: " + entriesCount + "\n- Looking for taskId: " + taskIdValue + "\n- Response received: " + responseReceived);
 		return response;
 	}
-	
 	info "✅ Target entry found successfully";
-	
 	// Extract field UUIDs from entry keys
 	entryKeys = targetEntry.keys();
 	info "Entry keys count: " + entryKeys.size();
 	info "Entry keys: " + entryKeys.toString();
-	
-	for each key in entryKeys
+	for each  key in entryKeys
 	{
 		keyStr = key + "";
-		
 		// Look for fields by their suffix - match first _text field that isn't _searchText or _textType
 		if(keyStr.contains("_text") && !keyStr.contains("_searchText") && !keyStr.contains("_textType") && !fieldUuidMap.containsKey("name_uuid"))
 		{
@@ -182,30 +160,26 @@ try
 			info "Found CATEGORIES field UUID: " + uuid;
 		}
 	}
-	
 	info "Total field UUIDs found: " + fieldUuidMap.size();
 	info "Field UUID Map: " + fieldUuidMap;
 }
-catch(e)
+catch (e)
 {
 	info "❌ ERROR fetching entries: " + e;
 	info "Error details: " + e;
 	response.put("text","❌ ERROR: Failed to fetch entries\n\nError: " + e);
 	return response;
 }
-
 // Check if we found the required field UUIDs
 if(fieldUuidMap.size() == 0)
 {
 	response.put("text","❌ ERROR: Could not extract field UUIDs from entry data\n\nNo UUID fields were found in the entry");
 	return response;
 }
-
 // ========================================
 // BUILD UPDATE PAYLOAD WITH ALL FIELDS
 // ========================================
 updatePayload = Map();
-
 // Add Name field (if provided)
 if(taskName != null && taskName != "")
 {
@@ -216,19 +190,19 @@ if(taskName != null && taskName != "")
 		info "Added name field: " + nameUuid + "_text = " + taskName;
 	}
 }
-
-	// Add Due Date field (if provided)
-	if(dueDate != null && dueDate != "")
+// Add Due Date field (if provided)
+if(dueDate != null && dueDate != "")
+{
+	dateUuid = fieldUuidMap.get("date_uuid");
+	if(dateUuid != null)
 	{
-		dateUuid = fieldUuidMap.get("date_uuid");
-		if(dateUuid != null)
-		{
-			updatePayload.put(dateUuid + "_date",dueDate);
-			updatePayload.put(dateUuid + "_hasTime",false);
-			// Don't include _endDate if it's null - Zenkit API rejects null values
-			info "Added date fields for: " + dateUuid;
-		}
-	}// Add Assign To field (if provided)
+		updatePayload.put(dateUuid + "_date",dueDate);
+		updatePayload.put(dateUuid + "_hasTime",false);
+		// Don't include _endDate if it's null - Zenkit API rejects null values
+		info "Added date fields for: " + dateUuid;
+	}
+}
+// Add Assign To field (if provided)
 assignToLabel = assignTo;
 if(assignTo != null && assignTo != "")
 {
@@ -238,12 +212,12 @@ if(assignTo != null && assignTo != "")
 		assignList = List();
 		// Extract value if it's a Map
 		assignValue = assignTo;
-		try
+		try 
 		{
 			assignToLabel = assignTo.get("label");
 			assignValue = assignTo.get("value");
 		}
-		catch(e)
+		catch (e)
 		{
 			assignValue = assignTo;
 		}
@@ -252,7 +226,6 @@ if(assignTo != null && assignTo != "")
 		info "Added persons field: " + personsUuid + "_persons = " + assignList;
 	}
 }
-
 // Add Category field (if provided)
 categoryLabel = category;
 if(category != null && category != "")
@@ -263,12 +236,12 @@ if(category != null && category != "")
 		catList = List();
 		// Extract value if it's a Map
 		catValue = category;
-		try
+		try 
 		{
 			categoryLabel = category.get("label");
 			catValue = category.get("value");
 		}
-		catch(e)
+		catch (e)
 		{
 			catValue = category;
 		}
@@ -277,61 +250,51 @@ if(category != null && category != "")
 		info "Added categories field: " + categoriesUuid + "_categories = " + catList;
 	}
 }
-
 // ========================================
 // SEND UPDATE REQUEST TO ZENKIT
 // ========================================
-try
+try 
 {
 	// Use the single entry endpoint (PUT /lists/{listId}/entries/{entryId})
 	updateUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/" + taskIdValue;
 	info "Sending update to: " + updateUrl;
 	info "Update payload: " + updatePayload;
-	
 	updateResponse = invokeurl
 	[
-		url : updateUrl
-		type : PUT
-		parameters : updatePayload
-		connection : "zenkitconnect"
+		url :updateUrl
+		type :PUT
+		parameters:updatePayload
+		connection:"zenkitconnect"
 	];
-	
 	info "Update response: " + updateResponse;
 	info "Update completed successfully";
 }
-catch(e)
+catch (e)
 {
 	info "Error updating task: " + e;
 	response.put("text","❌ ERROR: Failed to update task - " + e);
 	return response;
 }
-
-
 // ========================================
 // RETURN SUCCESS MESSAGE WITH REDIRECT BUTTON
 // ========================================
 targetEntryShortId = targetEntry.get("shortId");
 workspaceId = formValues.get("workspaceId");
-
 // Use the NEW updated task name (not the old displayString from targetEntry)
 entrySlug = taskName;
-
 // Fetch workspace short ID from Zenkit API
 workspaceShortId = "";
-try
+try 
 {
 	workspaceUrl = "https://base.zenkit.com/api/v1/workspaces/" + workspaceId;
 	info "Fetching workspace info from: " + workspaceUrl;
-	
 	workspaceResponse = invokeurl
 	[
-		url : workspaceUrl
-		type : GET
-		connection : "zenkitconnect"
+		url :workspaceUrl
+		type :GET
+		connection:"zenkitconnect"
 	];
-	
 	info "Workspace response: " + workspaceResponse;
-	
 	// Try different field names for short ID
 	workspaceShortId = workspaceResponse.get("shortId");
 	if(workspaceShortId == null || workspaceShortId == "")
@@ -346,27 +309,24 @@ try
 	{
 		workspaceShortId = workspaceResponse.get("uuid");
 	}
-	
 	info "Workspace short ID found: " + workspaceShortId;
 }
-catch(e)
+catch (e)
 {
 	info "❌ Could not fetch workspace short ID: " + e;
 	info "Error details: " + e;
 }
-
 // Get list short ID (this is what's actually used in the Zenkit URL)
 listShortId = "";
-try
+try 
 {
 	listUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue;
 	listResponse = invokeurl
 	[
-		url : listUrl
-		type : GET
-		connection : "zenkitconnect"
+		url :listUrl
+		type :GET
+		connection:"zenkitconnect"
 	];
-	
 	info "List response: " + listResponse;
 	listShortId = listResponse.get("shortId");
 	if(listShortId == null || listShortId == "")
@@ -374,7 +334,6 @@ try
 		listShortId = listResponse.get("short_id");
 	}
 	info "List short ID found: " + listShortId;
-	
 	// Use list short ID in the URL (this is the correct one based on actual Zenkit URLs)
 	if(listShortId != null && listShortId != "")
 	{
@@ -382,24 +341,21 @@ try
 		info "Using list short ID for URL: " + workspaceShortId;
 	}
 }
-catch(e)
+catch (e)
 {
 	info "Could not fetch list short ID: " + e;
 }
-
 taskUrl = "";
 if(workspaceShortId != null && targetEntryShortId != null && entrySlug != null)
 {
 	// Convert slug to proper format (lowercase, replace spaces with hyphens)
 	entrySlug = entrySlug + "";
 	entrySlug = entrySlug.toLowerCase();
-	entrySlug = entrySlug.replaceAll(" ", "-");
-	
+	entrySlug = entrySlug.replaceAll(" ","-");
 	// Format: https://base.zenkit.com/i/{workspace_short_id}/{entry_short_id}/{entry_slug}
 	taskUrl = "https://base.zenkit.com/i/" + workspaceShortId + "/" + targetEntryShortId + "/" + entrySlug;
 	info "Zenkit link: " + taskUrl;
 }
-
 response.put("type","message");
 successText = "✅ All fields updated successfully!\n\n";
 if(taskName != null && taskName != "")
@@ -418,32 +374,27 @@ if(category != null && category != "")
 {
 	successText = successText + "🏷️ Category: " + categoryLabel + "\n";
 }
-
 response.put("text",successText);
-
 // Add button to response
 if(taskUrl != "" && taskUrl != null)
 {
-	try
+	try 
 	{
 		btn = Map();
-		btn.put("label", "🔗 Open in Zenkit");
-		btn.put("type", "+");
-		btn.put("action", {"type":"open.url","data":{"web":taskUrl}});
-		
+		btn.put("label","🔗 Open in Zenkit");
+		btn.put("type","+");
+		btn.put("action",{"type":"open.url","data":{"web":taskUrl}});
 		btns = List();
 		btns.add(btn);
-		response.put("buttons", btns);
-		
+		response.put("buttons",btns);
 		info "Button added with URL: " + taskUrl;
 	}
-	catch(e)
+	catch (e)
 	{
 		info "Error creating button: " + e;
 		// Fallback: add link to text
 		successText = successText + "\n\n🔗 [Open in Zenkit](" + taskUrl + ")";
-		response.put("text", successText);
+		response.put("text",successText);
 	}
 }
-
 return response;

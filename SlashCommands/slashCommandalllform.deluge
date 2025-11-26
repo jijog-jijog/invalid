@@ -9,15 +9,17 @@ if(selections != null)
 		id = selMap.get("title");
 	}
 }
-// If no selection → return menu again
+// ===== FIRST TIME LOAD - SHOW WELCOME MESSAGE =====
 if(id == "")
 {
-	response = Map();
+	welcomeResponse = Map();
 	bot = Map();
 	bot.put("name","Zenkit Bot");
-	bot.put("image","https://i.imgur.com/ZSIOsEj.png");
-	response.put("bot",bot);
-	response.put("text","👋 Hello " + user.get("first_name") + "! Please select an option.");
+	bot.put("image","https://image2url.com/images/1764042133278-799d7a34-9a1c-44d6-abe1-4df9c8bc0d72.jpg");
+	welcomeResponse.put("bot",bot);
+	// Get user first name
+	userFirstName = ifnull(user.get("first_name"),"User");
+	welcomeResponse.put("text","Hello " + userFirstName + "! Welcome to Zenkit. Please select an option below.");
 	// RETURN SAME MENU LIST
 	suggestionsList = List();
 	item2 = Map();
@@ -45,17 +47,17 @@ if(id == "")
 	suggestionsList.add(item1);
 	suggestionsList.add(item4);
 	suggestionsList.add(item5);
-	response.put("suggestions",suggestionsList);
-	return response;
+	welcomeResponse.put("suggestions",suggestionsList);
+	return welcomeResponse;
 }
 /////////////////////////////////////////////////////////////////
-// 🟦 1️⃣ USER CLICKED: CREATE PROJECT  → OPEN FORM
+// USER CLICKED: CREATE PROJECT - OPEN FORM
 /////////////////////////////////////////////////////////////////
 if(id == "Create Project")
 {
 	response = Map();
 	response.put("type","form");
-	response.put("title","Create Project 🆕");
+	response.put("title","Create Project");
 	response.put("name","createproject");
 	response.put("button_label","Create");
 	// FETCH WORKSPACES
@@ -66,7 +68,7 @@ if(id == "Create Project")
 		connection:"zenkitconnect"
 	];
 	// BUILD DROPDOWN OPTIONS
-	optionsList = list();
+	optionsList = List();
 	for each  ws in workspaces
 	{
 		opt = Map();
@@ -75,7 +77,7 @@ if(id == "Create Project")
 		optionsList.add(opt);
 	}
 	// INPUTS
-	inputsList = list();
+	inputsList = List();
 	// FIXED DROPDOWN (dynamic_select required)
 	inp0 = Map();
 	inp0.put("label","Select Workspace");
@@ -105,64 +107,13 @@ if(id == "Create Project")
 	return response;
 }
 /////////////////////////////////////////////////////////////////
-// 🟦 2️⃣ USER CLICKED: CREATE TASK → OPEN FORM
+// USER CLICKED: CREATE TASK - OPEN FORM
 /////////////////////////////////////////////////////////////////
-if(id == "Create Project")
-{
-	response = Map();
-	response.put("type","form");
-	response.put("title","Create Project 🆕");
-	response.put("name","createproject");
-	response.put("button_label","Create");
-	// FETCH WORKSPACES
-	workspaces = invokeurl
-	[
-		url :"https://base.zenkit.com/api/v1/users/me/workspaces"
-		type :GET
-		connection:"zenkitconnect"
-	];
-	// BUILD DROPDOWN OPTIONS
-	optionsList = list();
-	for each  ws in workspaces
-	{
-		opt = Map();
-		opt.put("label",ws.get("name"));
-		opt.put("value",ws.get("id") + "");
-		optionsList.add(opt);
-	}
-	// INPUTS
-	inputsList = list();
-	// FIXED DROPDOWN (dynamic_select required)
-	inp0 = Map();
-	inp0.put("label","Select Workspace");
-	inp0.put("name","workspaceId");
-	inp0.put("type","dynamic_select");
-	inp0.put("mandatory",true);
-	inp0.put("multiple",false);
-	inp0.put("placeholder","Choose workspace");
-	inp0.put("options",optionsList);
-	inputsList.add(inp0);
-	// Project Name
-	inp1 = Map();
-	inp1.put("label","Project Name");
-	inp1.put("name","projectname");
-	inp1.put("placeholder","Eg. Marketing Team");
-	inp1.put("mandatory",true);
-	inp1.put("type","text");
-	inputsList.add(inp1);
-	response.put("inputs",inputsList);
-	// SUBMIT ACTION
-	action = Map();
-	action.put("type","invoke.function");
-	action.put("name","zenkitcreateproject");
-	response.put("action",action);
-	return response;
-}
 if(id == "Create Task")
 {
 	response = Map();
 	response.put("type","form");
-	response.put("title","Create Task 📌");
+	response.put("title","Create Task");
 	response.put("name","createtask");
 	response.put("button_label","Create");
 	// ========================================
@@ -419,19 +370,17 @@ if(id == "Create Task")
 	return response;
 }
 /////////////////////////////////////////////////////////////////
-// 🟦 3️⃣ USER CLICKED: VIEW TASKS → OPEN FORM
+// USER CLICKED: VIEW TASKS - OPEN FORM
 /////////////////////////////////////////////////////////////////
 if(id == "View Tasks")
 {
 	response = Map();
 	response.put("type","form");
-	response.put("title","View Tasks 👁️");
+	response.put("title","View Tasks");
 	response.put("name","viewtasks");
 	response.put("button_label","View");
-	
 	workspaceOptions = List();
 	listOptions = List();
-	
 	// ========================================
 	// FETCH WORKSPACES (with error handling)
 	// ========================================
@@ -456,11 +405,10 @@ if(id == "View Tasks")
 	catch (e)
 	{
 		errOpt = Map();
-		errOpt.put("label","❌ Error: Please reconnect Zenkit OAuth");
+		errOpt.put("label","Error: Please reconnect Zenkit OAuth");
 		errOpt.put("value","");
 		workspaceOptions.add(errOpt);
 	}
-	
 	// ========================================
 	// FETCH ALL LISTS FROM ALL WORKSPACES (with error handling)
 	// ========================================
@@ -548,7 +496,6 @@ if(id == "View Tasks")
 	{
 		// Lists fetch failed
 	}
-	
 	if(listOptions.size() == 0)
 	{
 		noList = Map();
@@ -556,12 +503,10 @@ if(id == "View Tasks")
 		noList.put("value","");
 		listOptions.add(noList);
 	}
-	
 	// ========================================
 	// BUILD INPUTS
 	// ========================================
 	inputsList = List();
-	
 	// 1. WORKSPACE DROPDOWN
 	inp0 = Map();
 	inp0.put("label","Select Workspace");
@@ -571,7 +516,6 @@ if(id == "View Tasks")
 	inp0.put("placeholder","Choose workspace");
 	inp0.put("options",workspaceOptions);
 	inputsList.add(inp0);
-	
 	// 2. LIST/PROJECT DROPDOWN
 	inp1 = Map();
 	inp1.put("label","Select Project/List");
@@ -581,25 +525,22 @@ if(id == "View Tasks")
 	inp1.put("placeholder","Choose project");
 	inp1.put("options",listOptions);
 	inputsList.add(inp1);
-	
 	response.put("inputs",inputsList);
-	
 	// SUBMIT ACTION
 	action = Map();
 	action.put("type","invoke.function");
-	action.put("name","zenkit_view_tasks");
+	action.put("name","zenkitviewtasks");
 	response.put("action",action);
-	
 	return response;
 }
 /////////////////////////////////////////////////////////////////
-// 🟦 4️⃣ USER CLICKED: UPDATE TASK → OPEN FORM
+// USER CLICKED: UPDATE TASK - OPEN FORM
 /////////////////////////////////////////////////////////////////
 if(id == "Update Task")
 {
 	response = Map();
 	response.put("type","form");
-	response.put("title","Update Task ✏️");
+	response.put("title","Update Task");
 	response.put("name","updatetask");
 	response.put("button_label","Load Tasks");
 	workspaceOptions = List();
@@ -631,7 +572,7 @@ if(id == "Update Task")
 	catch (e)
 	{
 		errOpt = Map();
-		errOpt.put("label","❌ Error: Please reconnect Zenkit OAuth");
+		errOpt.put("label","Error: Please reconnect Zenkit OAuth");
 		errOpt.put("value","");
 		workspaceOptions.add(errOpt);
 	}
@@ -836,7 +777,7 @@ if(id == "Update Task")
 	return response;
 }
 /////////////////////////////////////////////////////////////////
-// 🟦 5️⃣ USER CLICKED: CREATE DOCUMENT → OPEN FORM
+// USER CLICKED: CREATE DOCUMENT - OPEN FORM
 /////////////////////////////////////////////////////////////////
 if(id == "Create Document")
 {
@@ -861,7 +802,7 @@ if(id == "Create Document")
 	inputs.add(field3);
 	form = Map();
 	form.put("type","form");
-	form.put("title","Create Document 📄");
+	form.put("title","Create Document");
 	form.put("name","createdocument");
 	form.put("button_label","Create");
 	actions = Map();

@@ -1,12 +1,16 @@
+
 // ========================================
 // ZENKIT VIEW TASKS FUNCTION
 // Display tasks from a list in table format
 // ========================================
-
 // Get form input
 listIdValue = "";
-formValues = form.get("values");
-
+formValues = null;
+isFormValid = form != null;
+if(isFormValid)
+{
+	formValues = form.get("values");
+}
 if(formValues != null)
 {
 	listIdFromForm = formValues.get("listId");
@@ -47,30 +51,24 @@ if(formValues != null)
 		}
 	}
 }
-
 info "zenkit_view_tasks - listIdValue: " + listIdValue;
-
 // Initialize response
 response = Map();
 response.put("text","Loading tasks...");
-
 isListIdEmpty = listIdValue == null;
 if(isListIdEmpty)
 {
 	isListIdEmpty = listIdValue == "";
 }
-
 if(isListIdEmpty)
 {
 	response.put("text","❌ No list selected. Please select a project/list first.");
 	return response;
 }
-
 // ========================================
 // FETCH TASKS FROM LIST
 // ========================================
 info "Fetching tasks from list: " + listIdValue;
-
 // Fetch list details for the name
 listDetailsUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue;
 listName = "your project";
@@ -82,7 +80,6 @@ try
 		type :GET
 		connection:"zenkitconnect"
 	];
-	
 	if(listResponse != null)
 	{
 		fetchedName = listResponse.get("name");
@@ -96,12 +93,9 @@ catch (listError)
 {
 	info "Could not fetch list name: " + listError;
 }
-
 entriesSearchUrl = "https://base.zenkit.com/api/v1/lists/" + listIdValue + "/entries/search";
 info "API URL: " + entriesSearchUrl;
-
 tasksList = List();
-
 try 
 {
 	entriesResponse = invokeurl
@@ -110,9 +104,7 @@ try
 		type :GET
 		connection:"zenkitconnect"
 	];
-	
 	info "API Response received";
-	
 	isResponseNull = entriesResponse == null;
 	if(isResponseNull == false)
 	{
@@ -129,7 +121,6 @@ try
 		catch (iterError)
 		{
 			info "Direct iteration failed, trying as Map";
-			
 			// Try as Map with common keys
 			try 
 			{
@@ -167,32 +158,42 @@ catch (apiError)
 	response.put("text","❌ Error fetching tasks: " + apiError);
 	return response;
 }
-
 // ========================================
 // BUILD RESPONSE
 // ========================================
-
 totalTasks = tasksList.size();
 info "Total tasks to display: " + totalTasks;
-
 if(totalTasks == 0)
 {
-	response.put("text","📭 No tasks found in this list");
+	// No tasks found - return message with create task button
+	response = Map();
+	response.put("text","No tasks currently assigned to the " + listName + " project. Click the button below to create a new task.");
+	bot = Map();
+	bot.put("name","No Active Tasks");
+	response.put("bot",bot);
+	buttonsList = List();
+	buttonsList0 = Map();
+	buttonsList0.put("label","➕ Add Task");
+	buttonsList0.put("type","+");
+	action = Map();
+	action.put("type","invoke.function");
+	data = Map();
+	data.put("name","ZenkitcreatetaskForm");
+	action.put("data",data);
+	buttonsList0.put("action",action);
+	buttonsList.add(buttonsList0);
+	response.put("buttons",buttonsList);
 	return response;
 }
-
 // Build slides with table
 slidesList = List();
-
 // ========================================
 // TABLE SLIDE
 // ========================================
 tableSlide = Map();
 tableSlide.put("type","table");
 tableSlide.put("title","📋 Tasks in Project");
-
 tableData = Map();
-
 // Table headers
 headersList = List();
 headersList.add("Task Name");
@@ -200,18 +201,14 @@ headersList.add("Status");
 headersList.add("Assigned To");
 headersList.add("Due Date");
 tableData.put("headers",headersList);
-
 // Table rows
 rowsList = List();
-
 taskIndex = 0;
 entry = null;
 for each  entry in tasksList
 {
 	taskIndex = taskIndex + 1;
-	
 	info "Processing task " + taskIndex + ": " + entry;
-	
 	try 
 	{
 		// Extract task data
@@ -224,14 +221,11 @@ for each  entry in tasksList
 		{
 			taskName = "Task " + taskIndex;
 		}
-		
 		taskStatus = "Not Set";
 		assignedTo = "-";
 		dueDate = "-";
-		
 		// Find fields dynamically by looking for known suffixes in the entry
 		// Each field key format: {uuid}_{fieldType}
-		
 		// Find status field - look for any key ending with _categories_sort (has display values)
 		statusFieldKey = "";
 		try 
@@ -241,7 +235,7 @@ for each  entry in tasksList
 			catSortIdx = entryStr.indexOf("_categories_sort");
 			if(catSortIdx > 0)
 			{
-				searchStr = entryStr.substring(0, catSortIdx);
+				searchStr = entryStr.substring(0,catSortIdx);
 				lastQuoteIdx = searchStr.lastIndexOf("\"");
 				if(lastQuoteIdx > 0)
 				{
@@ -282,7 +276,6 @@ for each  entry in tasksList
 		{
 			info "Error extracting status: " + e;
 		}
-		
 		// Find assignee field - look for any key ending with _persons_sort
 		assigneeFieldKey = "";
 		try 
@@ -291,7 +284,7 @@ for each  entry in tasksList
 			personsSortIdx = entryStr.indexOf("_persons_sort");
 			if(personsSortIdx > 0)
 			{
-				searchStr = entryStr.substring(0, personsSortIdx);
+				searchStr = entryStr.substring(0,personsSortIdx);
 				lastQuoteIdx = searchStr.lastIndexOf("\"");
 				if(lastQuoteIdx > 0)
 				{
@@ -326,7 +319,6 @@ for each  entry in tasksList
 		{
 			info "Error extracting assignee: " + e;
 		}
-		
 		// Find due date field - look for any key ending with _date (but not _endDate)
 		dueDateFieldKey = "";
 		try 
@@ -335,7 +327,7 @@ for each  entry in tasksList
 			dateIdx = entryStr.indexOf("_date\"");
 			if(dateIdx > 0)
 			{
-				searchStr = entryStr.substring(0, dateIdx);
+				searchStr = entryStr.substring(0,dateIdx);
 				lastQuoteIdx = searchStr.lastIndexOf("\"");
 				if(lastQuoteIdx > 0)
 				{
@@ -358,9 +350,7 @@ for each  entry in tasksList
 		{
 			info "Error extracting due date: " + e;
 		}
-		
 		info "Found fields - Status: " + statusFieldKey + ", Assignee: " + assigneeFieldKey + ", DueDate: " + dueDateFieldKey;
-		
 		// Add row
 		row = Map();
 		row.put("Task Name",taskName);
@@ -374,12 +364,22 @@ for each  entry in tasksList
 		info "Error processing task: " + rowError;
 	}
 }
-
 tableData.put("rows",rowsList);
 tableSlide.put("data",tableData);
 slidesList.add(tableSlide);
-
 response.put("slides",slidesList);
 response.put("text","✅ Tasks from " + listName + ":");
-
+// Add "Add Task" button at the bottom of task list
+buttonsList = List();
+buttonsList0 = Map();
+buttonsList0.put("label","➕ Add Task");
+buttonsList0.put("type","+");
+action = Map();
+action.put("type","invoke.function");
+data = Map();
+data.put("name","ZenkitcreatetaskForm");
+action.put("data",data);
+buttonsList0.put("action",action);
+buttonsList.add(buttonsList0);
+response.put("buttons",buttonsList);
 return response;
